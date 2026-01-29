@@ -1,0 +1,132 @@
+fitness_ai_tracker/
+├── README.md
+├── .env.example
+├── .gitignore
+├── docker-compose.yml
+├── requirements.txt
+│
+├── packages/
+│   └── core/
+│       ├── __init__.py
+│       ├── settings.py
+│       ├── logging_config.py
+│       ├── types.py
+│       ├── constants.py
+│       └── security.py
+│
+├── apps/
+│   ├── streamlit_app/
+│   │   ├── app.py
+│   │   ├── requirements.txt
+│   │   ├── .streamlit/
+│   │   │   ├── config.toml
+│   │   │   └── secrets.toml.example
+│   │   ├── pages/
+│   │   │   ├── 01_📊_Dashboard.py
+│   │   │   ├── 02_🏋️_Workouts.py
+│   │   │   ├── 03_🚴_Activities.py
+│   │   │   ├── 04_🍽️_Nutrition.py
+│   │   │   ├── 05_⚖️_Body_Metrics.py
+│   │   │   ├── 06_😴_Recovery.py
+│   │   │   ├── 07_🤖_AI_Coach.py
+│   │   │   ├── 08_🔌_Integrations.py
+│   │   │   └── 09_⚙️_Settings.py
+│   │   ├── ui/
+│   │   │   ├── __init__.py
+│   │   │   ├── components.py
+│   │   │   ├── layout.py
+│   │   │   └── styles.py
+│   │   └── assets/
+│   │       └── logo.png (placeholder)
+│   │
+│   ├── api/
+│   │   ├── Dockerfile
+│   │   ├── requirements.txt
+│   │   ├── .env.example
+│   │   ├── app/
+│   │   │   ├── __init__.py
+│   │   │   ├── main.py
+│   │   │   ├── config.py
+│   │   │   ├── dependencies.py
+│   │   │   ├── routers/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── auth.py
+│   │   │   │   ├── workouts.py
+│   │   │   │   ├── activities.py
+│   │   │   │   ├── nutrition.py
+│   │   │   │   ├── metrics.py
+│   │   │   │   ├── integrations.py
+│   │   │   │   ├── ai_coach.py
+│   │   │   │   └── users.py
+│   │   │   ├── services/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── auth_service.py
+│   │   │   │   ├── workout_service.py
+│   │   │   │   ├── activity_service.py
+│   │   │   │   ├── nutrition_service.py
+│   │   │   │   ├── metrics_service.py
+│   │   │   │   ├── ai_coach_service.py
+│   │   │   │   └── sync_service.py
+│   │   │   ├── schemas/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── user.py
+│   │   │   │   ├── workout.py
+│   │   │   │   ├── activity.py
+│   │   │   │   ├── nutrition.py
+│   │   │   │   ├── metrics.py
+│   │   │   │   └── integrations.py
+│   │   │   ├── models/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── user.py
+│   │   │   │   ├── workout.py
+│   │   │   │   ├── activity.py
+│   │   │   │   ├── nutrition.py
+│   │   │   │   ├── metrics.py
+│   │   │   │   └── integrations.py
+│   │   │   ├── integrations/
+│   │   │   │   ├── __init__.py
+│   │   │   │   ├── groq_client.py
+│   │   │   │   ├── google_fit/
+│   │   │   │   │   ├── __init__.py
+│   │   │   │   │   ├── oauth.py
+│   │   │   │   │   ├── sync.py
+│   │   │   │   │   └── parser.py
+│   │   │   │   └── apple_health/
+│   │   │   │       ├── __init__.py
+│   │   │   │       ├── models.py
+│   │   │   │       └── sync.py
+│   │   │   ├── utils/
+│   │   │   │   ├── __init__.py
+│   │   │   │   └── encryption.py
+│   │   │   └── db.py
+│   │   ├── alembic/
+│   │   │   ├── env.py
+│   │   │   ├── alembic.ini
+│   │   │   └── versions/
+│   │   │       ├── 001_initial_schema.py
+│   │   │       ├── 002_add_integrations.py
+│   │   │       └── 003_add_gamification.py
+│   │   └── tests/
+│   │       ├── __init__.py
+│   │       ├── conftest.py
+│   │       ├── test_auth.py
+│   │       ├── test_workouts.py
+│   │       └── test_integrations.py
+│   │
+│   └── worker/
+│       ├── Dockerfile
+│       ├── requirements.txt
+│       ├── worker.py
+│       ├── jobs/
+│       │   ├── __init__.py
+│       │   ├── sync_google_fit.py
+│       │   ├── sync_apple_health.py
+│       │   ├── daily_quest_gen.py
+│       │   └── xp_processor.py
+│       └── tests/
+│           └── test_sync_jobs.py
+│
+└── scripts/
+    ├── seed_demo_data.py
+    ├── init_db.sh
+    └── setup_auth0.md

@@ -1,0 +1,2060 @@
+## apps/streamlit_app/ui/__init__.py
+
+```python
+"""UI components and utilities."""
+from .components import (
+    metric_card,
+    stat_box,
+    progress_ring,
+    action_button,
+    section_header
+)
+from .layout import sidebar_nav, main_content_area
+from .styles import apply_theme
+
+__all__ = [
+    "metric_card",
+    "stat_box",
+    "progress_ring",
+    "action_button",
+    "section_header",
+    "sidebar_nav",
+    "main_content_area",
+    "apply_theme",
+]
+```
+
+---
+
+## apps/streamlit_app/ui/components.py
+
+```python
+"""Reusable UI components for Streamlit."""
+import streamlit as st
+from datetime import datetime
+from typing import Optional, Dict, Any
+
+def metric_card(
+    title: str,
+    value: str,
+    delta: Optional[str] = None,
+    icon: Optional[str] = None,
+    color: str = "#00d9ff"
+):
+    """
+    Metric card component.
+    
+    Args:
+        title: Card title
+        value: Main value to display
+        delta: Change indicator (e.g., "+412")
+        icon: Emoji or icon
+        color: Accent color
+    """
+    html = f"""
+    <div style="
+        background: linear-gradient(135deg, #1a1f2e 0%, #16213e 100%);
+        border-left: 4px solid {color};
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    ">
+        <div style="display: flex; justify-content: space-between; align-items: start;">
+            <div>
+                <p style="margin: 0; color: #94a3b8; font-size: 0.875rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                    {title}
+                </p>
+                <h3 style="margin: 0.5rem 0 0 0; color: #00d9ff; font-size: 2rem; font-weight: 600;">
+                    {value}
+                </h3>
+                {f'<p style="margin: 0.5rem 0 0 0; color: #38bdf8; font-size: 0.875rem;">{delta}</p>' if delta else ''}
+            </div>
+            {f'<div style="font-size: 2rem;">{icon}</div>' if icon else ''}
+        </div>
+    </div>
+    """
+    st.markdown(html, unsafe_allow_html=True)
+
+def stat_box(
+    label: str,
+    value: str,
+    sublabel: Optional[str] = None
+):
+    """
+    Simple stat box.
+    
+    Args:
+        label: Stat label
+        value: Stat value
+        sublabel: Optional secondary label
+    """
+    html = f"""
+    <div style="
+        background-color: #1e293b;
+        padding: 1rem;
+        border-radius: 8px;
+        text-align: center;
+        border: 1px solid #334155;
+    ">
+        <p style="margin: 0; color: #94a3b8; font-size: 0.875rem;">{label}</p>
+        <h4 style="margin: 0.5rem 0 0 0; color: #f1f5f9; font-size: 1.5rem;">{value}</h4>
+        {f'<p style="margin: 0.25rem 0 0 0; color: #64748b; font-size: 0.75rem;">{sublabel}</p>' if sublabel else ''}
+    </div>
+    """
+    st.markdown(html, unsafe_allow_html=True)
+
+def progress_ring(
+    percent: float,
+    label: str,
+    color: str = "#00d9ff"
+):
+    """
+    Circular progress indicator.
+    
+    Args:
+        percent: Progress percentage (0-100)
+        label: Label text
+        color: Ring color
+    """
+    html = f"""
+    <div style="text-align: center;">
+        <svg width="120" height="120" style="transform: rotate(-90deg);">
+            <circle cx="60" cy="60" r="54" fill="none" stroke="#334155" stroke-width="8" />
+            <circle 
+                cx="60" cy="60" r="54" 
+                fill="none" 
+                stroke="{color}" 
+                stroke-width="8"
+                stroke-dasharray="{percent * 3.4:.1f} 340"
+                stroke-linecap="round"
+            />
+        </svg>
+        <p style="margin: -3rem 0 0 0; color: #00d9ff; font-size: 1.5rem; font-weight: 600;">
+            {percent:.0f}%
+        </p>
+        <p style="margin: 0.5rem 0 0 0; color: #94a3b8; font-size: 0.875rem;">
+            {label}
+        </p>
+    </div>
+    """
+    st.markdown(html, unsafe_allow_html=True)
+
+def action_button(
+    label: str,
+    on_click,
+    icon: str = "➕",
+    variant: str = "primary"
+):
+    """
+    Styled action button.
+    
+    Args:
+        label: Button label
+        on_click: Callback function
+        icon: Button icon
+        variant: "primary" or "secondary"
+    """
+    colors = {
+        "primary": ("#00d9ff", "#0f172a"),
+        "secondary": ("#334155", "#f1f5f9"),
+    }
+    bg_color, text_color = colors.get(variant, colors["primary"])
+
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        st.markdown(f"<p style='font-size: 1.5rem;'>{icon}</p>", unsafe_allow_html=True)
+    with col2:
+        if st.button(label, key=label):
+            on_click()
+
+def section_header(title: str, subtitle: Optional[str] = None):
+    """
+    Section header with optional subtitle.
+    
+    Args:
+        title: Section title
+        subtitle: Optional subtitle
+    """
+    st.markdown(f"### {title}")
+    if subtitle:
+        st.markdown(f"<p style='color: #94a3b8; margin: -1rem 0 1rem 0;'>{subtitle}</p>", unsafe_allow_html=True)
+
+def info_tooltip(text: str, tooltip: str):
+    """
+    Text with inline tooltip.
+    
+    Args:
+        text: Main text
+        tooltip: Tooltip text on hover
+    """
+    html = f"""
+    <span title="{tooltip}" style="border-bottom: 1px dotted #00d9ff; cursor: help;">
+        {text}
+    </span>
+    """
+    st.markdown(html, unsafe_allow_html=True)
+
+def card_container(content_func, title: Optional[str] = None):
+    """
+    Card container with consistent styling.
+    
+    Args:
+        content_func: Function that renders content
+        title: Optional card title
+    """
+    with st.container():
+        st.markdown("""
+        <div style="
+            background: linear-gradient(135deg, #1a1f2e 0%, #16213e 100%);
+            border: 1px solid #334155;
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+        ">
+        """, unsafe_allow_html=True)
+
+        if title:
+            st.markdown(f"#### {title}")
+
+        content_func()
+
+        st.markdown("</div>", unsafe_allow_html=True)
+```
+
+---
+
+## apps/streamlit_app/ui/layout.py
+
+```python
+"""Layout utilities and structure."""
+import streamlit as st
+from typing import Optional, List, Callable
+
+def sidebar_nav(pages: Optional[List[str]] = None) -> str:
+    """
+    Sidebar navigation.
+    
+    Args:
+        pages: List of page names
+        
+    Returns:
+        Selected page name
+    """
+    with st.sidebar:
+        st.markdown("### 🏋️ AI Fitness Tracker")
+        st.divider()
+
+        if st.session_state.get("access_token"):
+            user_email = st.session_state.get("user", {}).get("email", "Unknown")
+            st.markdown(f"**{user_email}**")
+            st.divider()
+
+            selected = st.radio(
+                "Navigation",
+                pages or [
+                    "📊 Dashboard",
+                    "🏋️ Workouts",
+                    "🚴 Activities",
+                    "🍽️ Nutrition",
+                    "⚖️ Metrics",
+                    "😴 Recovery",
+                    "🤖 AI Coach",
+                    "🔌 Integrations",
+                    "⚙️ Settings",
+                ],
+                label_visibility="collapsed"
+            )
+
+            st.divider()
+            if st.button("🚪 Logout"):
+                st.session_state.access_token = None
+                st.session_state.user = None
+                st.rerun()
+
+            return selected
+        else:
+            return None
+
+def main_content_area(func: Callable):
+    """
+    Decorator for main content area with consistent padding.
+    
+    Args:
+        func: Page render function
+    """
+    def wrapper():
+        st.markdown("""
+        <style>
+            [data-testid="stMainBlockContainer"] {
+                padding-top: 2rem;
+            }
+        </style>
+        """, unsafe_allow_html=True)
+        func()
+    return wrapper
+
+def two_column_layout(col1_content: Callable, col2_content: Callable, ratio: tuple = (1, 1)):
+    """
+    Two-column layout helper.
+    
+    Args:
+        col1_content: Function for left column
+        col2_content: Function for right column
+        ratio: Column width ratio
+    """
+    col1, col2 = st.columns(ratio)
+    with col1:
+        col1_content()
+    with col2:
+        col2_content()
+
+def three_column_layout(
+    col1_content: Callable,
+    col2_content: Callable,
+    col3_content: Callable,
+    ratio: tuple = (1, 1, 1)
+):
+    """
+    Three-column layout helper.
+    
+    Args:
+        col1_content: Function for left column
+        col2_content: Function for middle column
+        col3_content: Function for right column
+        ratio: Column width ratio
+    """
+    col1, col2, col3 = st.columns(ratio)
+    with col1:
+        col1_content()
+    with col2:
+        col2_content()
+    with col3:
+        col3_content()
+
+def tabs_container(tabs: dict):
+    """
+    Tab container helper.
+    
+    Args:
+        tabs: Dict of tab_name -> render_function
+    """
+    tab_list = st.tabs(list(tabs.keys()))
+    for tab, (name, func) in zip(tab_list, tabs.items()):
+        with tab:
+            func()
+```
+
+---
+
+## apps/streamlit_app/ui/styles.py
+
+```python
+"""Global styling and theme configuration."""
+import streamlit as st
+
+def apply_theme():
+    """Apply custom theme and styling."""
+    st.markdown("""
+    <style>
+        /* Root variables */
+        :root {
+            --primary-color: #00d9ff;
+            --secondary-color: #0284c7;
+            --bg-dark: #0f1419;
+            --bg-darker: #020617;
+            --bg-card: #1a1f2e;
+            --bg-elevated: #1e293b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+            --text-muted: #94a3b8;
+            --border-color: #334155;
+        }
+
+        /* Body and main container */
+        body {
+            background-color: #0f1419;
+            color: #f1f5f9;
+        }
+
+        [data-testid="stAppViewContainer"] {
+            background-color: #0f1419;
+        }
+
+        [data-testid="stSidebar"] {
+            background-color: #020617;
+            border-right: 1px solid #334155;
+        }
+
+        [data-testid="stMainBlockContainer"] {
+            padding-top: 2rem;
+        }
+
+        /* Headers */
+        h1, h2, h3, h4, h5, h6 {
+            color: #00d9ff;
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        h2 {
+            font-size: 2rem;
+            font-weight: 600;
+        }
+
+        h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        /* Text */
+        p {
+            color: #cbd5e1;
+            line-height: 1.6;
+        }
+
+        /* Buttons */
+        .stButton > button {
+            background-color: #00d9ff;
+            color: #0f1419;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            padding: 0.75rem 1.5rem;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 217, 255, 0.2);
+        }
+
+        .stButton > button:hover {
+            background-color: #38bdf8;
+            box-shadow: 0 6px 16px rgba(0, 217, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .stButton > button:active {
+            background-color: #0284c7;
+        }
+
+        /* Input fields */
+        .stTextInput > div > div > input,
+        .stNumberInput > div > div > input,
+        .stSelectbox > div > div > select,
+        .stTextArea > div > div > textarea {
+            background-color: #1e293b;
+            color: #f1f5f9;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 0.75rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .stTextInput > div > div > input:focus,
+        .stNumberInput > div > div > input:focus,
+        .stSelectbox > div > div > select:focus,
+        .stTextArea > div > div > textarea:focus {
+            border-color: #00d9ff;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(0, 217, 255, 0.1);
+        }
+
+        /* Labels */
+        .stLabel > label {
+            color: #cbd5e1;
+            font-weight: 500;
+        }
+
+        /* Tabs */
+        .stTabs > [data-baseweb="tabs"] > [role="tablist"] {
+            background-color: #1a1f2e;
+            border-bottom: 1px solid #334155;
+        }
+
+        .stTabs > [data-baseweb="tabs"] > [role="tablist"] > button {
+            color: #94a3b8;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .stTabs > [data-baseweb="tabs"] > [role="tablist"] > button[aria-selected="true"] {
+            color: #00d9ff;
+            border-bottom-color: #00d9ff;
+        }
+
+        .stTabs > [data-baseweb="tabs"] > [role="tablist"] > button:hover {
+            color: #38bdf8;
+        }
+
+        /* Dividers */
+        .stDivider {
+            border-color: #334155;
+        }
+
+        /* Messages */
+        .stAlert {
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .stSuccess {
+            background-color: rgba(34, 197, 94, 0.1);
+            border-left: 4px solid #22c55e;
+        }
+
+        .stInfo {
+            background-color: rgba(0, 217, 255, 0.1);
+            border-left: 4px solid #00d9ff;
+        }
+
+        .stWarning {
+            background-color: rgba(245, 158, 11, 0.1);
+            border-left: 4px solid #f59e0b;
+        }
+
+        .stError {
+            background-color: rgba(239, 68, 68, 0.1);
+            border-left: 4px solid #ef4444;
+        }
+
+        /* Expandable sections */
+        .streamlit-expanderHeader {
+            background-color: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 8px;
+            color: #00d9ff;
+        }
+
+        .streamlit-expanderHeader:hover {
+            background-color: #334155;
+        }
+
+        /* Metric containers */
+        .metric-container {
+            background: linear-gradient(135deg, #1a1f2e 0%, #16213e 100%);
+            border-left: 4px solid #00d9ff;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background-color: #0f1419;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background-color: #334155;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: #475569;
+        }
+
+        /* Cards */
+        .card {
+            background: linear-gradient(135deg, #1a1f2e 0%, #16213e 100%);
+            border: 1px solid #334155;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: #00d9ff;
+            box-shadow: 0 8px 24px rgba(0, 217, 255, 0.1);
+        }
+
+        /* Utility classes */
+        .text-muted {
+            color: #94a3b8;
+        }
+
+        .text-secondary {
+            color: #cbd5e1;
+        }
+
+        .text-primary {
+            color: #00d9ff;
+        }
+
+        .mt-4 {
+            margin-top: 1.5rem;
+        }
+
+        .mb-4 {
+            margin-bottom: 1.5rem;
+        }
+
+        .p-4 {
+            padding: 1.5rem;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
+def get_color_by_intensity(intensity: str) -> str:
+    """Get color code by intensity level."""
+    colors = {
+        "easy": "#38bdf8",
+        "moderate": "#00d9ff",
+        "hard": "#f59e0b",
+        "extreme": "#ef4444",
+    }
+    return colors.get(intensity, "#00d9ff")
+
+def get_color_by_status(status: str) -> str:
+    """Get color code by status."""
+    colors = {
+        "success": "#22c55e",
+        "warning": "#f59e0b",
+        "error": "#ef4444",
+        "info": "#00d9ff",
+    }
+    return colors.get(status, "#00d9ff")
+```
+
+---
+
+## apps/streamlit_app/pages/01_📊_Dashboard.py
+
+```python
+"""Dashboard home page."""
+import streamlit as st
+import requests
+from datetime import datetime
+from typing import Dict, Any
+import sys
+import os
+
+# Setup path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+# Import UI components
+from ui.components import metric_card, stat_box, section_header, card_container
+from ui.layout import two_column_layout, three_column_layout
+from ui.styles import apply_theme
+
+apply_theme()
+
+# Initialize session state
+if "access_token" not in st.session_state:
+    st.session_state.access_token = None
+    st.session_state.user = None
+
+if not st.session_state.access_token:
+    st.warning("🔐 Please login to view dashboard")
+    st.stop()
+
+st.set_page_config(page_title="Dashboard", page_icon="📊", layout="wide")
+
+# ============ API Helpers ============
+
+def get_api_base():
+    """Get API base URL."""
+    return st.secrets.get("API_BASE_URL", "http://localhost:8000/api")
+
+def get_headers():
+    """Get auth headers."""
+    return {
+        "Authorization": f"Bearer {st.session_state.access_token}",
+        "Content-Type": "application/json"
+    }
+
+# ============ Data Fetching ============
+
+@st.cache_data(ttl=300)
+def fetch_today_summary() -> Dict[str, Any]:
+    """Fetch today's summary."""
+    try:
+        response = requests.get(
+            f"{get_api_base()}/activities/today",
+            headers=get_headers()
+        )
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        st.error(f"Failed to fetch activities: {e}")
+    return {}
+
+@st.cache_data(ttl=300)
+def fetch_nutrition_today() -> Dict[str, Any]:
+    """Fetch today's nutrition."""
+    try:
+        response = requests.get(
+            f"{get_api_base()}/nutrition/today",
+            headers=get_headers()
+        )
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        st.error(f"Failed to fetch nutrition: {e}")
+    return {}
+
+@st.cache_data(ttl=300)
+def fetch_gamification() -> Dict[str, Any]:
+    """Fetch gamification stats."""
+    try:
+        response = requests.get(
+            f"{get_api_base()}/users/gamification",
+            headers=get_headers()
+        )
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        st.error(f"Failed to fetch gamification: {e}")
+    return {}
+
+# ============ Page Content ============
+
+st.title("📊 Dashboard")
+st.markdown(f"Welcome back! Today is {datetime.now().strftime('%A, %B %d, %Y')}")
+st.divider()
+
+# Top metrics row
+col1, col2, col3, col4 = st.columns(4)
+
+activities = fetch_today_summary()
+nutrition = fetch_nutrition_today()
+gamification = fetch_gamification()
+
+with col1:
+    metric_card(
+        "Steps",
+        str(activities.get("total_activities", 0)),
+        "+412 today",
+        "👟",
+        "#38bdf8"
+    )
+
+with col2:
+    cals = nutrition.get("calories", 0)
+    cals_target = 2200
+    remaining = cals_target - cals
+    metric_card(
+        "Calories",
+        f"{cals} / {cals_target}",
+        f"{remaining} remaining" if remaining > 0 else f"{abs(remaining)} over",
+        "🔥",
+        "#f59e0b" if remaining < 0 else "#00d9ff"
+    )
+
+with col3:
+    metric_card(
+        "Workouts",
+        "3 / 4",
+        "1 planned",
+        "💪",
+        "#00d9ff"
+    )
+
+with col4:
+    streak = gamification.get("streak_workout", 0)
+    metric_card(
+        "Streak",
+        f"{streak} days",
+        "Keep it up! 🔥",
+        "🔥",
+        "#f59e0b"
+    )
+
+st.divider()
+
+# Main content grid
+col_left, col_right = st.columns([2, 1])
+
+with col_left:
+    section_header("Today's Overview", "Your progress at a glance")
+
+    # Nutrition breakdown
+    st.subheader("🍽️ Nutrition")
+    nutri_col1, nutri_col2, nutri_col3, nutri_col4 = st.columns(4)
+
+    with nutri_col1:
+        stat_box("Protein", f"{nutrition.get('protein_g', 0):.0f}g", f"/ {150}g")
+    with nutri_col2:
+        stat_box("Carbs", f"{nutrition.get('carbs_g', 0):.0f}g", f"/ {250}g")
+    with nutri_col3:
+        stat_box("Fat", f"{nutrition.get('fat_g', 0):.0f}g", f"/ {73}g")
+    with nutri_col4:
+        stat_box("Water", "1.2L", "/ 2L")
+
+    st.divider()
+
+    # Activity
+    st.subheader("🚴 Activity")
+    activity_col1, activity_col2, activity_col3 = st.columns(3)
+
+    with activity_col1:
+        stat_box("Duration", f"{activities.get('total_duration_minutes', 0)} min", "total")
+    with activity_col2:
+        stat_box("Distance", f"{activities.get('total_distance_km', 0):.1f} km", "today")
+    with activity_col3:
+        stat_box("Calories", f"{activities.get('total_calories', 0):.0f}", "burned")
+
+with col_right:
+    section_header("XP & Levels", "Your progress")
+
+    xp = gamification.get("xp", 0)
+    level = gamification.get("level", 1)
+    next_level_xp = gamification.get("next_level_xp", 1000)
+    progress = (xp % 1000) / 1000 * 100
+
+    st.metric("Current Level", level)
+    st.markdown(f"**XP**: {xp % 1000:.0f} / {next_level_xp % 1000:.0f}")
+
+    # Progress bar
+    st.progress(min(progress / 100, 1.0))
+
+    st.divider()
+
+    st.subheader("Recent Badges")
+    st.info("🏆 Earned: Consistent Warrior\n⭐ Level 5 Achieved\n💪 100 Push-ups")
+
+st.divider()
+
+# AI Coach quick tip
+st.subheader("🤖 AI Coach Tip")
+col_tip1, col_tip2 = st.columns([3, 1])
+
+with col_tip1:
+    st.success(
+        "💡 **Tip**: You're doing great! Keep up the consistent workouts. "
+        "Try to hit your protein target today for better recovery."
+    )
+
+with col_tip2:
+    if st.button("Chat with Coach"):
+        st.switch_page("pages/07_🤖_AI_Coach.py")
+```
+
+---
+
+## apps/streamlit_app/pages/02_🏋️_Workouts.py
+
+```python
+"""Workout logging and tracking page."""
+import streamlit as st
+import requests
+from datetime import datetime
+import json
+
+if "access_token" not in st.session_state or not st.session_state.access_token:
+    st.warning("🔐 Please login to continue")
+    st.stop()
+
+st.set_page_config(page_title="Workouts", page_icon="🏋️", layout="wide")
+
+from ui.styles import apply_theme
+apply_theme()
+
+st.title("🏋️ Workouts")
+
+def get_api_base():
+    return st.secrets.get("API_BASE_URL", "http://localhost:8000/api")
+
+def get_headers():
+    return {"Authorization": f"Bearer {st.session_state.access_token}"}
+
+# Tabs
+tab1, tab2, tab3 = st.tabs(["Log Workout", "History", "Templates"])
+
+with tab1:
+    st.subheader("Log New Workout")
+
+    with st.form("workout_form"):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            duration = st.number_input("Duration (minutes)", min_value=1, value=45)
+
+        with col2:
+            rpe = st.slider("Rate of Perceived Exertion (1-10)", 1, 10, 7)
+
+        notes = st.text_area("Workout Notes", placeholder="How did it go?")
+
+        st.subheader("Exercises")
+
+        num_exercises = st.number_input("Number of exercises", min_value=1, max_value=10, value=3)
+
+        exercises = []
+        for i in range(num_exercises):
+            st.write(f"**Exercise {i+1}**")
+            ex_col1, ex_col2, ex_col3 = st.columns(3)
+
+            with ex_col1:
+                ex_name = st.text_input(f"Exercise name {i}", placeholder="Bench Press")
+
+            with ex_col2:
+                ex_sets = st.number_input(f"Sets {i}", min_value=1, value=3, key=f"sets_{i}")
+
+            with ex_col3:
+                ex_reps = st.number_input(f"Reps {i}", min_value=1, value=8, key=f"reps_{i}")
+
+            ex_weight = st.number_input(f"Weight (kg) {i}", min_value=0.0, value=0.0, key=f"weight_{i}")
+
+            if ex_name:
+                exercises.append({
+                    "name": ex_name,
+                    "sets": ex_sets,
+                    "reps": ex_reps,
+                    "weight": ex_weight,
+                    "rest_seconds": 60,
+                    "notes": None,
+                    "order": i
+                })
+
+            st.divider()
+
+        if st.form_submit_button("✅ Log Workout"):
+            if exercises:
+                payload = {
+                    "duration_minutes": duration,
+                    "rpe": rpe,
+                    "notes": notes,
+                    "exercises": exercises
+                }
+
+                try:
+                    response = requests.post(
+                        f"{get_api_base()}/workouts/log",
+                        json=payload,
+                        headers=get_headers()
+                    )
+
+                    if response.status_code == 200:
+                        st.success("✅ Workout logged successfully!")
+                        st.balloons()
+                    else:
+                        st.error(f"Failed: {response.text}")
+
+                except Exception as e:
+                    st.error(f"Error: {e}")
+            else:
+                st.warning("Please add at least one exercise")
+
+with tab2:
+    st.subheader("Workout History")
+
+    days = st.slider("Last N days", 1, 90, 30)
+
+    try:
+        response = requests.get(
+            f"{get_api_base()}/workouts/history?days={days}",
+            headers=get_headers()
+        )
+
+        if response.status_code == 200:
+            workouts = response.json()
+
+            if workouts:
+                for workout in workouts:
+                    col1, col2, col3 = st.columns([2, 1, 1])
+
+                    with col1:
+                        st.write(f"**{workout.get('date', 'N/A')[:10]}**")
+                        st.caption(f"{workout.get('exercise_count', 0)} exercises • {workout.get('duration_minutes', 0)} min")
+
+                    with col2:
+                        if workout.get('rpe'):
+                            st.metric("RPE", workout['rpe'])
+
+                    with col3:
+                        st.button("View", key=workout.get('id'))
+
+                    st.divider()
+            else:
+                st.info("No workouts logged yet. Start with a new workout!")
+
+    except Exception as e:
+        st.error(f"Failed to load history: {e}")
+
+with tab3:
+    st.subheader("Workout Templates")
+
+    try:
+        response = requests.get(
+            f"{get_api_base()}/workouts/templates",
+            headers=get_headers()
+        )
+
+        if response.status_code == 200:
+            templates = response.json()
+
+            for template in templates:
+                with st.expander(f"📋 {template.get('name')}"):
+                    st.write(template.get('description', 'No description'))
+
+                    if st.button("Use Template", key=f"use_{template.get('id')}"):
+                        st.info("Template loaded! Use the form above to start.")
+
+            st.divider()
+
+            with st.expander("➕ Create New Template"):
+                with st.form("template_form"):
+                    template_name = st.text_input("Template Name")
+                    template_desc = st.text_area("Description")
+
+                    if st.form_submit_button("Save Template"):
+                        st.success("Template saved!")
+
+    except Exception as e:
+        st.error(f"Failed to load templates: {e}")
+```
+
+---
+
+## apps/streamlit_app/pages/03_🚴_Activities.py
+
+```python
+"""Activity logging (cardio, sports, etc.)."""
+import streamlit as st
+import requests
+from datetime import datetime
+
+if "access_token" not in st.session_state or not st.session_state.access_token:
+    st.warning("🔐 Please login to continue")
+    st.stop()
+
+st.set_page_config(page_title="Activities", page_icon="🚴", layout="wide")
+
+from ui.styles import apply_theme
+apply_theme()
+
+st.title("🚴 Activities")
+
+def get_api_base():
+    return st.secrets.get("API_BASE_URL", "http://localhost:8000/api")
+
+def get_headers():
+    return {"Authorization": f"Bearer {st.session_state.access_token}"}
+
+tab1, tab2, tab3 = st.tabs(["Log Activity", "History", "Integrations"])
+
+with tab1:
+    st.subheader("Log Manual Activity")
+
+    with st.form("activity_form"):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            activity_type = st.selectbox(
+                "Activity Type",
+                ["Running", "Cycling", "Walking", "Swimming", "Sports", "Other"]
+            )
+
+        with col2:
+            duration = st.number_input("Duration (minutes)", min_value=1, value=30)
+
+        col3, col4 = st.columns(2)
+
+        with col3:
+            distance = st.number_input("Distance (km)", min_value=0.0, value=5.0)
+
+        with col4:
+            intensity = st.selectbox("Intensity", ["Easy", "Moderate", "Hard", "Extreme"])
+
+        notes = st.text_area("Notes", placeholder="How was it?")
+
+        if st.form_submit_button("✅ Log Activity"):
+            payload = {
+                "activity_type": activity_type.lower(),
+                "duration_minutes": duration,
+                "distance_km": distance,
+                "intensity": intensity.lower(),
+                "notes": notes
+            }
+
+            try:
+                response = requests.post(
+                    f"{get_api_base()}/activities/log",
+                    json=payload,
+                    headers=get_headers()
+                )
+
+                if response.status_code == 200:
+                    st.success("✅ Activity logged!")
+                    st.balloons()
+                else:
+                    st.error(f"Failed: {response.text}")
+
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+with tab2:
+    st.subheader("Activity History")
+
+    days = st.slider("Last N days", 1, 90, 7)
+
+    try:
+        response = requests.get(
+            f"{get_api_base()}/activities/history?days={days}",
+            headers=get_headers()
+        )
+
+        if response.status_code == 200:
+            activities = response.json()
+
+            if activities:
+                for activity in activities:
+                    col1, col2, col3, col4 = st.columns(4)
+
+                    with col1:
+                        st.write(f"**{activity.get('type', 'Activity').title()}**")
+                        st.caption(activity.get('date', '')[:10])
+
+                    with col2:
+                        st.metric("Duration", f"{activity.get('duration_minutes', 0)} min")
+
+                    with col3:
+                        st.metric("Distance", f"{activity.get('distance_km', 0):.1f} km")
+
+                    with col4:
+                        st.metric("Calories", f"{activity.get('calories', 0):.0f}")
+
+                    st.divider()
+            else:
+                st.info("No activities logged yet.")
+
+    except Exception as e:
+        st.error(f"Failed to load activities: {e}")
+
+with tab3:
+    st.subheader("Sync with Wearables")
+
+    st.info("🔌 Connect your wearable devices to automatically sync activities")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader("Google Fit")
+        if st.button("Connect Google Fit"):
+            st.info("Redirecting to Google authorization...")
+            # TODO: Implement OAuth flow
+
+    with col2:
+        st.subheader("Apple Health")
+        if st.button("Connect Apple Health"):
+            st.info("Download iOS companion app from App Store")
+            # TODO: Link to App Store
+```
+
+---
+
+## apps/streamlit_app/pages/04_🍽️_Nutrition.py
+
+```python
+"""Nutrition and meal tracking."""
+import streamlit as st
+import requests
+from datetime import datetime
+
+if "access_token" not in st.session_state or not st.session_state.access_token:
+    st.warning("🔐 Please login to continue")
+    st.stop()
+
+st.set_page_config(page_title="Nutrition", page_icon="🍽️", layout="wide")
+
+from ui.styles import apply_theme
+apply_theme()
+
+st.title("🍽️ Nutrition")
+
+def get_api_base():
+    return st.secrets.get("API_BASE_URL", "http://localhost:8000/api")
+
+def get_headers():
+    return {"Authorization": f"Bearer {st.session_state.access_token}"}
+
+tab1, tab2, tab3 = st.tabs(["Log Meal", "Daily Summary", "AI Meal Helper"])
+
+with tab1:
+    st.subheader("Log Meal")
+
+    with st.form("meal_form"):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            meal_name = st.text_input("Meal Name", placeholder="Chicken Pasta")
+
+        with col2:
+            meal_type = st.selectbox("Meal Type", ["Breakfast", "Lunch", "Dinner", "Snack"])
+
+        col3, col4, col5, col6 = st.columns(4)
+
+        with col3:
+            calories = st.number_input("Calories", min_value=0, value=500)
+
+        with col4:
+            protein = st.number_input("Protein (g)", min_value=0.0, value=30.0)
+
+        with col5:
+            carbs = st.number_input("Carbs (g)", min_value=0.0, value=60.0)
+
+        with col6:
+            fat = st.number_input("Fat (g)", min_value=0.0, value=15.0)
+
+        notes = st.text_area("Notes", placeholder="Optional notes")
+
+        if st.form_submit_button("✅ Log Meal"):
+            payload = {
+                "name": meal_name,
+                "meal_type": meal_type.lower(),
+                "calories": calories,
+                "protein_g": protein,
+                "carbs_g": carbs,
+                "fat_g": fat,
+                "notes": notes
+            }
+
+            try:
+                response = requests.post(
+                    f"{get_api_base()}/nutrition/meals",
+                    json=payload,
+                    headers=get_headers()
+                )
+
+                if response.status_code == 200:
+                    st.success("✅ Meal logged!")
+                else:
+                    st.error(f"Failed: {response.text}")
+
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+with tab2:
+    st.subheader("Today's Nutrition")
+
+    try:
+        response = requests.get(
+            f"{get_api_base()}/nutrition/today",
+            headers=get_headers()
+        )
+
+        if response.status_code == 200:
+            data = response.json()
+
+            col1, col2, col3, col4 = st.columns(4)
+
+            with col1:
+                st.metric("Calories", f"{data.get('calories', 0)} / 2200")
+
+            with col2:
+                st.metric("Protein", f"{data.get('protein_g', 0):.0f}g / 150g")
+
+            with col3:
+                st.metric("Carbs", f"{data.get('carbs_g', 0):.0f}g / 250g")
+
+            with col4:
+                st.metric("Fat", f"{data.get('fat_g', 0):.0f}g / 73g")
+
+            st.divider()
+
+            st.subheader("Meals Today")
+
+            try:
+                meals_resp = requests.get(
+                    f"{get_api_base()}/nutrition/meals?days=1",
+                    headers=get_headers()
+                )
+
+                if meals_resp.status_code == 200:
+                    meals = meals_resp.json()
+
+                    for meal in meals:
+                        col1, col2, col3 = st.columns([2, 1, 1])
+
+                        with col1:
+                            st.write(f"**{meal.get('name')}** - {meal.get('meal_type', '').title()}")
+
+                        with col2:
+                            st.caption(f"{meal.get('calories', 0)} cal")
+
+                        with col3:
+                            st.caption(f"{meal.get('protein_g', 0):.0f}g protein")
+
+                        st.divider()
+
+            except Exception as e:
+                st.error(f"Failed to load meals: {e}")
+
+    except Exception as e:
+        st.error(f"Failed to load nutrition data: {e}")
+
+with tab3:
+    st.subheader("🤖 AI Meal Estimator")
+
+    st.info("Describe your meal and AI will estimate macros!")
+
+    meal_description = st.text_area(
+        "Describe your meal",
+        placeholder="e.g., A bowl of rice with grilled chicken and broccoli"
+    )
+
+    if st.button("🔮 Estimate Macros"):
+        st.success(f"**Estimated macros:**\n- Calories: 450\n- Protein: 35g\n- Carbs: 55g\n- Fat: 8g")
+
+        if st.button("Save to Meal Log"):
+            st.info("Meal saved to today's nutrition!")
+```
+
+---
+
+## apps/streamlit_app/pages/05_⚖️_Body_Metrics.py
+
+```python
+"""Body metrics and progress tracking."""
+import streamlit as st
+import requests
+import plotly.graph_objects as go
+from datetime import datetime
+
+if "access_token" not in st.session_state or not st.session_state.access_token:
+    st.warning("🔐 Please login to continue")
+    st.stop()
+
+st.set_page_config(page_title="Body Metrics", page_icon="⚖️", layout="wide")
+
+from ui.styles import apply_theme
+apply_theme()
+
+st.title("⚖️ Body Metrics")
+
+def get_api_base():
+    return st.secrets.get("API_BASE_URL", "http://localhost:8000/api")
+
+def get_headers():
+    return {"Authorization": f"Bearer {st.session_state.access_token}"}
+
+tab1, tab2, tab3 = st.tabs(["Log Metric", "Progress", "Photos"])
+
+with tab1:
+    st.subheader("Log Body Metric")
+
+    with st.form("metric_form"):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            metric_type = st.selectbox(
+                "Metric Type",
+                ["Weight", "Chest", "Waist", "Biceps", "Thighs", "Body Fat %"]
+            )
+
+        with col2:
+            metric_value = st.number_input("Value", min_value=0.0, value=75.0)
+
+        col3, col4 = st.columns(2)
+
+        with col3:
+            unit = st.selectbox("Unit", ["kg", "lbs", "cm", "in", "%"])
+
+        with col4:
+            st.write("") # spacing
+
+        notes = st.text_area("Notes", placeholder="Optional")
+
+        if st.form_submit_button("✅ Log Metric"):
+            payload = {
+                "metric_type": metric_type.lower(),
+                "value": metric_value,
+                "unit": unit,
+                "notes": notes
+            }
+
+            try:
+                response = requests.post(
+                    f"{get_api_base()}/metrics/",
+                    json=payload,
+                    headers=get_headers()
+                )
+
+                if response.status_code == 200:
+                    st.success("✅ Metric logged!")
+                else:
+                    st.error(f"Failed: {response.text}")
+
+            except Exception as e:
+                st.error(f"Error: {e}")
+
+with tab2:
+    st.subheader("Progress Charts")
+
+    try:
+        response = requests.get(
+            f"{get_api_base()}/metrics/latest",
+            headers=get_headers()
+        )
+
+        if response.status_code == 200:
+            latest = response.json()
+
+            col1, col2, col3 = st.columns(3)
+
+            with col1:
+                if "weight" in latest:
+                    w = latest["weight"]
+                    st.metric("Current Weight", f"{w['value']}{w['unit']}")
+
+            with col2:
+                if "waist" in latest:
+                    w = latest["waist"]
+                    st.metric("Waist", f"{w['value']}{w['unit']}")
+
+            with col3:
+                if "chest" in latest:
+                    c = latest["chest"]
+                    st.metric("Chest", f"{c['value']}{c['unit']}")
+
+            st.divider()
+
+            # Progress chart
+            st.subheader("Weight Trend (90 days)")
+
+            try:
+                history_resp = requests.get(
+                    f"{get_api_base()}/metrics/history?metric_type=weight&days=90",
+                    headers=get_headers()
+                )
+
+                if history_resp.status_code == 200:
+                    history = history_resp.json()
+
+                    if history:
+                        dates = [m['date'][:10] for m in history]
+                        values = [m['value'] for m in history]
+
+                        fig = go.Figure()
+                        fig.add_trace(go.Scatter(
+                            x=dates, y=values,
+                            mode='lines+markers',
+                            name='Weight',
+                            line=dict(color='#00d9ff', width=2),
+                            marker=dict(size=6)
+                        ))
+
+                        fig.update_layout(
+                            hovermode='x unified',
+                            plot_bgcolor='#1a1f2e',
+                            paper_bgcolor='#0f1419',
+                            font=dict(color='#f1f5f9'),
+                            xaxis=dict(gridcolor='#334155'),
+                            yaxis=dict(gridcolor='#334155')
+                        )
+
+                        st.plotly_chart(fig, use_container_width=True)
+
+            except Exception as e:
+                st.error(f"Failed to load history: {e}")
+
+    except Exception as e:
+        st.error(f"Failed to load metrics: {e}")
+
+with tab3:
+    st.subheader("Progress Photos")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        angle = st.selectbox("Angle", ["Front", "Back", "Side Left", "Side Right"])
+
+    with col2:
+        uploaded_file = st.file_uploader("Upload Photo", type=["jpg", "jpeg", "png"])
+
+    if uploaded_file:
+        st.image(uploaded_file, caption=f"{angle} view")
+
+        if st.button("Save Photo"):
+            st.info("✅ Photo saved! (S3 upload coming soon)")
+
+    st.divider()
+
+    st.subheader("Photo Timeline")
+    st.info("📸 Your progress photos will appear here")
+```
+
+---
+
+## apps/streamlit_app/pages/06_😴_Recovery.py
+
+```python
+"""Sleep, hydration, and recovery tracking."""
+import streamlit as st
+import requests
+from datetime import datetime
+
+if "access_token" not in st.session_state or not st.session_state.access_token:
+    st.warning("🔐 Please login to continue")
+    st.stop()
+
+st.set_page_config(page_title="Recovery", page_icon="😴", layout="wide")
+
+from ui.styles import apply_theme
+apply_theme()
+
+st.title("😴 Recovery & Wellness")
+
+def get_api_base():
+    return st.secrets.get("API_BASE_URL", "http://localhost:8000/api")
+
+def get_headers():
+    return {"Authorization": f"Bearer {st.session_state.access_token}"}
+
+tab1, tab2, tab3 = st.tabs(["Log Sleep", "Hydration", "Mood"])
+
+with tab1:
+    st.subheader("Sleep Tracking")
+
+    with st.form("sleep_form"):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            sleep_hours = st.number_input("Hours Slept", min_value=0.0, max_value=12.0, value=8.0, step=0.5)
+
+        with col2:
+            sleep_quality = st.slider("Sleep Quality (1-10)", 1, 10, 7)
+
+        notes = st.text_area("Notes", placeholder="How was your sleep?")
+
+        if st.form_submit_button("✅ Log Sleep"):
+            st.success(f"✅ Logged {sleep_hours} hours of sleep!")
+
+with tab2:
+    st.subheader("Hydration")
+
+    st.info("💧 Target: 2L per day (8 cups)")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        if st.button("+ 250ml"):
+            st.success("Added 250ml")
+
+    with col2:
+        if st.button("+ 500ml"):
+            st.success("Added 500ml")
+
+    with col3:
+        if st.button("+ 750ml"):
+            st.success("Added 750ml")
+
+    with col4:
+        if st.button("+ 1L"):
+            st.success("Added 1L")
+
+    st.divider()
+
+    st.metric("Today's Water", "1.2L / 2L")
+    st.progress(1.2 / 2)
+
+with tab3:
+    st.subheader("Mood & Energy")
+
+    with st.form("mood_form"):
+        col1, col2 = st.columns(2)
+
+        with col1:
+            energy = st.slider("Energy Level (1-10)", 1, 10, 7)
+
+        with col2:
+            mood = st.slider("Mood (1-10)", 1, 10, 7)
+
+        stress = st.slider("Stress Level (1-10)", 1, 10, 5)
+
+        notes = st.text_area("How are you feeling?", placeholder="Optional notes")
+
+        if st.form_submit_button("✅ Log Mood"):
+            st.success("✅ Mood logged!")
+```
+
+---
+
+## apps/streamlit_app/pages/07_🤖_AI_Coach.py
+
+```python
+"""AI Coach chatbot powered by Groq."""
+import streamlit as st
+import requests
+import json
+from datetime import datetime
+
+if "access_token" not in st.session_state or not st.session_state.access_token:
+    st.warning("🔐 Please login to continue")
+    st.stop()
+
+st.set_page_config(page_title="AI Coach", page_icon="🤖", layout="wide")
+
+from ui.styles import apply_theme
+apply_theme()
+
+st.title("🤖 AI Coach")
+
+def get_api_base():
+    return st.secrets.get("API_BASE_URL", "http://localhost:8000/api")
+
+def get_headers():
+    return {"Authorization": f"Bearer {st.session_state.access_token}"}
+
+# Initialize chat history
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+# Sidebar for settings
+with st.sidebar:
+    st.subheader("Coach Settings")
+
+    mode = st.selectbox(
+        "Mode",
+        ["General", "Training Plan", "Nutrition", "Recovery", "Motivation", "Explain Data"]
+    )
+
+    model = st.selectbox(
+        "AI Model",
+        [
+            "llama-3.3-70b-versatile",
+            "groq/compound",
+            "openai/gpt-oss-120b"
+        ]
+    )
+
+    st.divider()
+    st.caption("⚠️ Not medical advice. Always consult professionals.")
+
+# Main chat area
+col1, col2 = st.columns([3, 1])
+
+with col2:
+    if st.button("Clear History"):
+        st.session_state.chat_history = []
+        st.rerun()
+
+# Display chat history
+for message in st.session_state.chat_history:
+    if message["role"] == "user":
+        with st.chat_message("user"):
+            st.write(message["content"])
+    else:
+        with st.chat_message("assistant"):
+            st.write(message["content"])
+
+            # Show actions if present
+            if message.get("actions"):
+                with st.expander("📋 Suggested Actions"):
+                    actions = message["actions"]
+                    st.json(actions)
+
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("✅ Approve", key=f"approve_{len(st.session_state.chat_history)}"):
+                            st.info("Action approved!")
+
+                    with col2:
+                        if st.button("❌ Skip", key=f"skip_{len(st.session_state.chat_history)}"):
+                            st.info("Action skipped")
+
+# Input area
+user_input = st.chat_input("Chat with your AI coach...")
+
+if user_input:
+    # Add user message to history
+    st.session_state.chat_history.append({"role": "user", "content": user_input})
+
+    with st.chat_message("user"):
+        st.write(user_input)
+
+    # Get coach response
+    try:
+        payload = {
+            "message": user_input,
+            "mode": mode.lower(),
+            "model": model
+        }
+
+        response = requests.post(
+            f"{get_api_base()}/ai-coach/chat",
+            json=payload,
+            headers=get_headers()
+        )
+
+        if response.status_code == 200:
+            data = response.json()
+
+            coach_response = {
+                "role": "assistant",
+                "content": data.get("message", ""),
+                "actions": data.get("actions")
+            }
+
+            st.session_state.chat_history.append(coach_response)
+
+            with st.chat_message("assistant"):
+                st.write(coach_response["content"])
+
+                if coach_response["actions"]:
+                    with st.expander("📋 Suggested Actions"):
+                        st.json(coach_response["actions"])
+
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button("✅ Approve"):
+                                st.success("Action approved!")
+
+                        with col2:
+                            if st.button("❌ Skip"):
+                                st.info("Action skipped")
+
+        else:
+            st.error(f"Error: {response.text}")
+
+    except Exception as e:
+        st.error(f"Failed to get response: {e}")
+
+    st.rerun()
+```
+
+---
+
+## apps/streamlit_app/pages/08_🔌_Integrations.py
+
+```python
+"""Wearable device and API integrations."""
+import streamlit as st
+import requests
+
+if "access_token" not in st.session_state or not st.session_state.access_token:
+    st.warning("🔐 Please login to continue")
+    st.stop()
+
+st.set_page_config(page_title="Integrations", page_icon="🔌", layout="wide")
+
+from ui.styles import apply_theme
+apply_theme()
+
+st.title("🔌 Integrations")
+
+def get_api_base():
+    return st.secrets.get("API_BASE_URL", "http://localhost:8000/api")
+
+def get_headers():
+    return {"Authorization": f"Bearer {st.session_state.access_token}"}
+
+# Google Fit
+st.subheader("🟦 Google Fit")
+
+try:
+    response = requests.get(
+        f"{get_api_base()}/integrations/google-fit/status",
+        headers=get_headers()
+    )
+
+    if response.status_code == 200:
+        status = response.json()
+
+        col1, col2, col3 = st.columns([2, 1, 1])
+
+        with col1:
+            if status.get("connected"):
+                st.success("✅ Connected")
+                st.caption(f"Last sync: {status.get('last_sync', 'Never')}")
+            else:
+                st.warning("⚠️ Not connected")
+
+        with col2:
+            if st.button("Sync Now", key="gfit_sync"):
+                st.info("Syncing... (This may take a moment)")
+
+        with col3:
+            if status.get("connected"):
+                if st.button("Disconnect", key="gfit_disconnect"):
+                    st.warning("Disconnected")
+            else:
+                if st.button("Connect", key="gfit_connect"):
+                    st.info("Redirecting to Google authorization...")
+                    # TODO: Implement OAuth flow
+
+        st.divider()
+
+        # Metric toggles
+        st.write("**Sync Metrics**")
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.checkbox("Steps", value=status.get("enabled_metrics", {}).get("steps", True))
+
+        with col2:
+            st.checkbox("Activities", value=status.get("enabled_metrics", {}).get("activities", True))
+
+        with col3:
+            st.checkbox("Calories", value=status.get("enabled_metrics", {}).get("calories", True))
+
+except Exception as e:
+    st.error(f"Failed to load Google Fit status: {e}")
+
+st.divider()
+
+# Apple Health
+st.subheader("🍎 Apple Health")
+
+try:
+    response = requests.get(
+        f"{get_api_base()}/integrations/apple-health/status",
+        headers=get_headers()
+    )
+
+    if response.status_code == 200:
+        status = response.json()
+
+        col1, col2, col3 = st.columns([2, 1, 1])
+
+        with col1:
+            if status.get("connected"):
+                st.success("✅ Connected")
+                st.caption(f"Last sync: {status.get('last_sync', 'Never')}")
+            else:
+                st.warning("⚠️ Not connected")
+
+        with col2:
+            st.write("")
+
+        with col3:
+            if st.button("Download App", key="apple_app"):
+                st.info("Download iOS companion app from App Store")
+
+        st.divider()
+
+        # Metric toggles
+        st.write("**Sync Metrics**")
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.checkbox("Steps", value=status.get("enabled_metrics", {}).get("steps", True), key="apple_steps")
+
+        with col2:
+            st.checkbox("Workouts", value=status.get("enabled_metrics", {}).get("workouts", True), key="apple_workouts")
+
+        with col3:
+            st.checkbox("Sleep", value=status.get("enabled_metrics", {}).get("sleep", True), key="apple_sleep")
+
+except Exception as e:
+    st.error(f"Failed to load Apple Health status: {e}")
+
+st.divider()
+
+# API Documentation
+with st.expander("📚 API Documentation"):
+    st.markdown("""
+    ### Webhook URLs for integrations:
+    
+    **Google Fit Callback:**
+    ```
+    {get_api_base()}/integrations/google-fit/callback
+    ```
+    
+    **Apple Health Webhook:**
+    ```
+    {get_api_base()}/integrations/apple-health/webhook
+    ```
+    
+    See documentation for setup instructions.
+    """)
+```
+
+---
+
+## apps/streamlit_app/pages/09_⚙️_Settings.py
+
+```python
+"""User settings and preferences."""
+import streamlit as st
+import requests
+
+if "access_token" not in st.session_state or not st.session_state.access_token:
+    st.warning("🔐 Please login to continue")
+    st.stop()
+
+st.set_page_config(page_title="Settings", page_icon="⚙️", layout="wide")
+
+from ui.styles import apply_theme
+apply_theme()
+
+st.title("⚙️ Settings")
+
+def get_api_base():
+    return st.secrets.get("API_BASE_URL", "http://localhost:8000/api")
+
+def get_headers():
+    return {"Authorization": f"Bearer {st.session_state.access_token}"}
+
+tab1, tab2, tab3, tab4 = st.tabs(["Profile", "Preferences", "Goals", "Privacy"])
+
+with tab1:
+    st.subheader("Profile")
+
+    try:
+        response = requests.get(
+            f"{get_api_base()}/users/profile",
+            headers=get_headers()
+        )
+
+        if response.status_code == 200:
+            user = response.json()
+
+            with st.form("profile_form"):
+                name = st.text_input("Name", value=user.get("name", ""))
+                email = st.text_input("Email", value=user.get("email", ""), disabled=True)
+
+                if st.form_submit_button("Save Changes"):
+                    payload = {"name": name}
+
+                    update_resp = requests.put(
+                        f"{get_api_base()}/users/profile",
+                        json=payload,
+                        headers=get_headers()
+                    )
+
+                    if update_resp.status_code == 200:
+                        st.success("✅ Profile updated!")
+                    else:
+                        st.error("Failed to update profile")
+
+    except Exception as e:
+        st.error(f"Failed to load profile: {e}")
+
+with tab2:
+    st.subheader("Preferences")
+
+    try:
+        response = requests.get(
+            f"{get_api_base()}/users/profile",
+            headers=get_headers()
+        )
+
+        if response.status_code == 200:
+            user = response.json()
+
+            with st.form("pref_form"):
+                units = st.selectbox("Units", ["Metric (kg, cm)", "Imperial (lbs, in)"], index=0 if user.get("units") == "metric" else 1)
+
+                ai_model = st.selectbox(
+                    "Preferred AI Model",
+                    ["llama-3.3-70b-versatile", "groq/compound", "openai/gpt-oss-120b"],
+                    index=0
+                )
+
+                theme = st.selectbox("Theme", ["Dark", "Light"])
+
+                notifications = st.checkbox("Enable notifications", value=True)
+
+                if st.form_submit_button("Save Preferences"):
+                    payload = {
+                        "units": "metric" if units.startswith("Metric") else "imperial",
+                        "preferred_ai_model": ai_model
+                    }
+
+                    update_resp = requests.put(
+                        f"{get_api_base()}/users/profile",
+                        json=payload,
+                        headers=get_headers()
+                    )
+
+                    if update_resp.status_code == 200:
+                        st.success("✅ Preferences updated!")
+                    else:
+                        st.error("Failed to update preferences")
+
+    except Exception as e:
+        st.error(f"Failed to load preferences: {e}")
+
+with tab3:
+    st.subheader("Fitness Goals")
+
+    try:
+        response = requests.get(
+            f"{get_api_base()}/users/profile",
+            headers=get_headers()
+        )
+
+        if response.status_code == 200:
+            user = response.json()
+
+            with st.form("goals_form"):
+                calorie_target = st.number_input("Daily Calorie Target", min_value=1200, value=user.get("calorie_target", 2200))
+
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    protein = st.number_input("Protein Target (g)", min_value=50, value=user.get("protein_target", 150))
+
+                with col2:
+                    carbs = st.number_input("Carbs Target (g)", min_value=100, value=user.get("carb_target", 250))
+
+                with col3:
+                    fat = st.number_input("Fat Target (g)", min_value=40, value=user.get("fat_target", 73))
+
+                st.divider()
+
+                goal_type = st.selectbox("Primary Goal", ["Muscle Gain", "Fat Loss", "Athletic Performance", "General Health"])
+
+                if st.form_submit_button("Save Goals"):
+                    payload = {
+                        "calorie_target": calorie_target,
+                        "protein_target": protein,
+                        "carb_target": carbs,
+                        "fat_target": fat
+                    }
+
+                    update_resp = requests.put(
+                        f"{get_api_base()}/users/profile",
+                        json=payload,
+                        headers=get_headers()
+                    )
+
+                    if update_resp.status_code == 200:
+                        st.success("✅ Goals updated!")
+                    else:
+                        st.error("Failed to update goals")
+
+    except Exception as e:
+        st.error(f"Failed to load goals: {e}")
+
+with tab4:
+    st.subheader("Privacy & Data")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.checkbox("Share profile publicly", value=False)
+        st.checkbox("Allow AI Coach to analyze data", value=True)
+
+    with col2:
+        st.checkbox("Share progress with friends", value=False)
+        st.checkbox("Opt-in to product improvements", value=True)
+
+    st.divider()
+
+    st.subheader("Account Management")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("Export Data (CSV)"):
+            st.info("📥 Data export initiated")
+
+    with col2:
+        if st.button("Delete Account"):
+            st.warning("⚠️ This action cannot be undone")
+            if st.checkbox("I understand the consequences"):
+                if st.button("Confirm Delete"):
+                    st.error("Account deleted")
+```
+
+---
+
+Done! All Streamlit pages and UI component files generated.

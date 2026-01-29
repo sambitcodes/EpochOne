@@ -1,0 +1,23 @@
+# General
+.env
+**/.env
+.venv
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+.vscode/
+.idea/
+
+# Docker
+postgres_data/
+redis_data/
+
+# Python
+*.egg-info/
+dist/
+build/
+
+# Streamlit
+secrets.toml
+**/secrets.toml

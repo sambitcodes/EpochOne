@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "core"
+version = "0.1.0"
+description = "Core shared package"
+authors = [{name = "Fitness App"}]
+dependencies = [
+    "pydantic>=2.0.0",
+    "python-jose>=3.3.0",
+    "cryptography>=43.0.0"
+]
