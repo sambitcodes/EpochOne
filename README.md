@@ -1,4 +1,130 @@
-# AI Fitness Tracker 🏋️‍♂️🤖
+# EpochOne - AI Fitness Tracker 🏋️‍♂️⌚🤖
+
+EpochOne is a comprehensive AI-powered fitness tracking application designed to centralize your health data. It features a modern Streamlit frontend, a robust FastAPI backend, and seamless integrations with popular wearables like Fitbit and Apple Health. At its core is an intelligent AI Coach (powered by Groq) that provides personalized health insights and motivation.
+
+**Status**: MVP Complete (Web, API, Worker, Database) with Docker Compose deployment.
+
+---
+
+## 🚀 Features
+
+### Core Tracking
+- **Workouts**: Log strength training with exercises, sets, reps, weight, RPE, and rest timers. Save and reuse workout templates.
+- **Activities**: Track cardio, sports, and other activities. Sync automatically from wearables.
+- **Nutrition**: Log daily meals and track macronutrients (Protein, Carbs, Fat) and calories against your goals.
+- **Body Metrics**: Monitor weight, body fat %, measurements (waist, chest, etc.), and BMI trends.
+- **Recovery**: Track sleep duration, hydration levels, and daily mood/energy scores.
+
+### 🔌 Integrations
+- **Fitbit**: Full OAuth 2.0 integration. Syncs **steps**, **calories burned**, **activity intensity**, and **sleep** data directly to your dashboard.
+- **Apple Health**: Webhook-based integration support for iOS companion apps.
+- **Health Connect**: Android integration support.
+- **Groq AI Coach**: Personal health assistant running on Llama 3/3.3 models via Groq. Provides actionable advice based on your real-time data.
+
+### 🤖 AI Coach
+- **Context-Aware**: The coach knows your latest workouts, nutrition synced from Fitbit, and goals.
+- **Modes**:
+  - **Plan**: Generate workout routines.
+  - **Nutrition**: Get meal suggestions based on remaining macros.
+  - **Recovery**: Tips to improve sleep and reduce fatigue.
+  - **Motivation**: Hype messages to keep you consistent.
+- **Safety**: Built-in guardrails for safe health advice.
+
+### 🎮 Gamification
+- **XP System**: Earn XP for logging workouts, meals, and completing synchronization.
+- **Levels**: Level up as you stay consistent.
+- **Streaks**: Track diverse streaks (Workout, Nutrition, Sync).
+- **Daily Quests**: AI-generated daily challenges (e.g., "Walk 5000 steps", "Eat 20g protein").
+
+### 🔐 Authentication & Security
+- **Auth0 / Google Login**: Secure OIDC authentication.
+- **User Segregation**: Complete data isolation between users.
+- **Encrypted Tokens**: OAuth tokens (Fitbit) are encrypted at rest.
+
+---
+
+## 🛠️ Architecture
+
+The project is built as a set of Dockerized microservices:
+
+1.  **Frontend (`apps/streamlit_app`)**: A responsive UI built with Python Streamlit.
+2.  **API (`apps/api`)**: FastAPI backend handling business logic, DB access, and OAuth flows.
+3.  **Worker (`apps/worker`)**: Background process for scheduled synchronization jobs and XP processing.
+4.  **Database**: PostgreSQL 15 for relational data.
+5.  **Cache**: Redis 7 for session management and job queues.
+
+---
+
+## ⚙️ Setup & Deployment
+
+### Prerequisite
+- Docker & Docker Compose
+- API Keys for Auth0, Fitbit, and Groq.
+
+### 1. clone the repository
+```bash
+git clone https://github.com/sambitcodes/EpochOne.git
+cd EpochOne
+```
+
+### 2. Configure Environment (`.env`)
+Copy the example environment file and fill in your secrets.
+```bash
+cp apps/api/.env.example .env
+```
+**Required Secrets in `.env`**:
+- `DATABASE_URL`: `postgresql+psycopg://fitness_user:changeme@postgres:5432/fitness_tracker`
+- `REDIS_URL`: `redis://redis:6379/0`
+- `SECRET_KEY`: Generate a random string.
+- `GROQ_API_KEY`: Get from [Groq Console](https://console.groq.com).
+- `AUTH0_DOMAIN`, `CLIENT_ID`, `CLIENT_SECRET`: Get from [Auth0](https://auth0.com).
+- `FITBIT_CLIENT_ID`, `FITBIT_CLIENT_SECRET`, `FITBIT_REDIRECT_URI`: Get from [dev.fitbit.com](https://dev.fitbit.com).
+
+### 3. Run with Docker Compose
+```bash
+docker-compose up --build -d
+```
+The app will be available at:
+- **Frontend**: http://localhost:8501
+- **API Docs**: http://localhost:8000/docs
+
+### 4. Initialize Database
+Apply migrations to set up the schema.
+```bash
+docker-compose exec api alembic upgrade head
+```
+(Optional) Seed demo data:
+```bash
+docker-compose exec api python scripts/seed_demo_data.py
+```
+
+---
+
+## ⌚ Fitbit Setup Guide
+
+1.  Go to **[dev.fitbit.com](https://dev.fitbit.com)** -> Manage -> Register an App.
+2.  **OAuth 2.0 Application Type**: Server.
+3.  **Callback URL**: `http://localhost:8501` (Important: The app handles the callback on the home page).
+4.  **Default Access Type**: Read & Write.
+5.  Copy `Client ID` and `Client Secret` to your `.env` file.
+6.  Restart containers: `docker-compose up -d`.
+
+---
+
+## 🗺️ Roadmap
+
+- ✅ **MVP Core**: Workouts, Nutrition, Body Metrics.
+- ✅ **Gamification**: XP, Levels, Streaks.
+- ✅ **AI Intergration**: Groq-powered Contextual Coach.
+- ✅ **Fitbit Integration**: Complete OAuth flow & data sync.
+- 🔄 **Mobile App**: Companion app for iOS/Android (via Flutter or React Native).
+- 🔄 **Advanced Analytics**: 1RM calculation, Volume trends, Progress Photo comparison.
+- 🔮 **Social**: Friend leaderboards and challenges.
+
+---
+
+## 📄 License
+MIT License.
 
 A multi-user AI-powered fitness tracking webapp with Streamlit frontend, FastAPI backend, Google Fit + Apple Health integrations, and an intelligent Groq-powered AI Coach.
 
