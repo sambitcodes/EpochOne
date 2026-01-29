@@ -19,6 +19,7 @@ class WorkoutCreate(BaseModel):
     """Create workout session."""
     duration_minutes: int
     rpe: Optional[int] = None
+    calories_burned: Optional[int] = None
     notes: Optional[str] = None
     exercises: List[WorkoutExerciseCreate]
 
@@ -28,6 +29,7 @@ class WorkoutResponse(BaseModel):
     date: datetime
     duration_minutes: int
     rpe: Optional[int]
+    calories_burned: Optional[int]
     notes: Optional[str]
     created_at: datetime
 

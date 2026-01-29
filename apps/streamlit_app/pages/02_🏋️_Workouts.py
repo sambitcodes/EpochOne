@@ -29,10 +29,10 @@ with tab1:
 
     with st.form("workout_form"):
         col1, col2 = st.columns(2)
-
+        
         with col1:
             duration = st.number_input("Duration (minutes)", min_value=0, value=60)
-
+            
         with col2:
             rpe = st.slider("Rate of Perceived Exertion (1-10)", 1, 10, 7)
 
@@ -76,6 +76,7 @@ with tab1:
                 payload = {
                     "duration_minutes": duration,
                     "rpe": rpe,
+                    # "calories_burned": calories, # Let AI handle it
                     "notes": notes,
                     "exercises": exercises
                 }
@@ -123,11 +124,33 @@ with tab2:
                         st.caption(f"{workout.get('exercise_count', 0)} exercises • {workout.get('duration_minutes', 0)} min")
 
                     with col2:
-                        if workout.get('rpe'):
-                            st.metric("RPE", workout['rpe'])
-
+                        cols_hist1, cols_hist2 = st.columns(2)
+                        with cols_hist1:
+                            if workout.get('rpe'):
+                                st.metric("RPE", workout['rpe'])
+                        with cols_hist2:
+                            if workout.get('calories_burned'):
+                                st.metric("Cals", f"{(workout.get('calories_burned') or 0):.0f}")
+                            
                     with col3:
-                        st.button("View", key=workout.get('id'))
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            st.button("View", key=workout.get('id'))
+                        with c2:
+                            if st.button("🗑️", key=f"del_{workout.get('id')}", help="Delete workout"):
+                                try:
+                                    res = requests.delete(
+                                        f"{get_api_base()}/workouts/{workout.get('id')}",
+                                        params={"user_id": st.session_state.user_id},
+                                        headers=get_headers()
+                                    )
+                                    if res.status_code == 204:
+                                        st.success("Deleted!")
+                                        st.rerun()
+                                    else:
+                                        st.error("Failed to delete")
+                                except Exception as e:
+                                    st.error(f"Error: {e}")
 
                     st.divider()
             else:

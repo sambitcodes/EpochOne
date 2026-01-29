@@ -16,6 +16,7 @@ class Workout(Base):
     
     date = Column(DateTime, default=datetime.utcnow, index=True)
     duration_minutes = Column(Integer, nullable=False)  # Session duration
+    calories_burned = Column(Integer, nullable=True)     # Estimated calories burned
     notes = Column(Text, nullable=True)
     rpe = Column(Integer, nullable=True)  # Rate of Perceived Exertion (1-10)
 

@@ -43,7 +43,7 @@ def get_headers():
 
 # ============ Data Fetching ============
 
-@st.cache_data(ttl=300)
+# @st.cache_data(ttl=300)
 def fetch_today_summary() -> Dict[str, Any]:
     """Fetch today's summary."""
     try:
@@ -58,7 +58,7 @@ def fetch_today_summary() -> Dict[str, Any]:
         st.error(f"Failed to fetch activities: {e}")
     return {}
 
-@st.cache_data(ttl=300)
+# @st.cache_data(ttl=300)
 def fetch_nutrition_today() -> Dict[str, Any]:
     """Fetch today's nutrition."""
     try:
@@ -73,7 +73,7 @@ def fetch_nutrition_today() -> Dict[str, Any]:
         st.error(f"Failed to fetch nutrition: {e}")
     return {}
 
-@st.cache_data(ttl=300)
+# @st.cache_data(ttl=300)
 def fetch_gamification() -> Dict[str, Any]:
     """Fetch gamification stats."""
     try:
@@ -88,7 +88,7 @@ def fetch_gamification() -> Dict[str, Any]:
         st.error(f"Failed to fetch gamification: {e}")
     return {}
 
-@st.cache_data(ttl=300)
+# @st.cache_data(ttl=300)
 def fetch_workout_today() -> Dict[str, Any]:
     """Fetch today's workout."""
     try:
@@ -109,40 +109,66 @@ st.title("📊 Dashboard")
 st.markdown(f"Welcome back! Today is {datetime.now().strftime('%A, %B %d, %Y')}")
 st.divider()
 
+import plotly.graph_objects as go
+
+# ... (keep existing imports)
+
+# @st.cache_data(ttl=60)
+def fetch_daily_summary() -> Dict[str, Any]:
+    """Fetch consolidated daily summary."""
+    try:
+        response = requests.get(
+            f"{get_api_base()}/metrics/daily-summary",
+            params={"user_id": st.session_state.user_id},
+            headers=get_headers()
+        )
+        if response.status_code == 200:
+            return response.json()
+    except Exception as e:
+        # Silently fail or log
+        pass
+    return {}
+
+# ... (existing functions)
+
 # Top metrics row
 col1, col2, col3, col4 = st.columns(4)
 
 activities = fetch_today_summary()
 nutrition = fetch_nutrition_today()
+summary = fetch_daily_summary() # New Source of Truth for Cals
 gamification = fetch_gamification()
 workout = fetch_workout_today()
 
 with col1:
     metric_card(
         "Steps",
-        str(activities.get("total_activities", 0)),
+        str(activities.get("total_activities", 0)), # Fallback to activities from old endpoint if needed, or summary
         "+412 today",
         "👟",
         "#38bdf8"
     )
 
 with col2:
-    cals = nutrition.get("calories", 0)
-    cals_target = 2200
-    remaining = cals_target - cals
+    # Use consolidated summary
+    net = summary.get("net_balance", 0)
+    status = summary.get("status", "Deficit")
+    color = "#10b981" if status == "Deficit" and net > 0 else "#ef4444" # Green if deficit (weight loss context), Red if surplus
+    # If objective is Muscle Gain, logic handles differently, but keeping simple.
+    
     metric_card(
-        "Calories",
-        f"{cals} / {cals_target}",
-        f"{remaining} remaining" if remaining > 0 else f"{abs(remaining)} over",
-        "🔥",
-        "#f59e0b" if remaining < 0 else "#00d9ff"
+        "Net Balance",
+        f"{abs(net):.0f}",
+        f"{status}",
+        "⚖️",
+        color
     )
 
 with col3:
     metric_card(
         "Workouts",
-        f"{workout.get('total_workout', 0)} / {workout.get('total_workout_planned', 0)}",
-        f"{workout.get('total_workout_planned', 0) - workout.get('total_workout', 0)} planned",
+        f"{workout.get('total_workout', 0)}",
+        f"Burn: {summary.get('calories_burned_workout', 0):.0f} kcal",
         "💪",
         "#00d9ff"
     )
@@ -156,6 +182,56 @@ with col4:
         "🔥",
         "#f59e0b"
     )
+
+st.divider()
+
+# ============ Calorie Equation Section ============
+st.subheader("🔥 Daily Energy Balance")
+st.caption("Maintenance + Activities + Workouts - Food = Net Balance")
+
+sum_container = st.container()
+with sum_container:
+    # Prepare Waterfall Data
+    maint = summary.get("maintenance_calories", 2000)
+    act_burn = summary.get("calories_burned_activity", 0)
+    work_burn = summary.get("calories_burned_workout", 0)
+    intake = summary.get("calories_intake", 0)
+    net_bal = summary.get("net_balance", 0)
+    
+    fig = go.Figure(go.Waterfall(
+        name = "Energy Balance",
+        orientation = "v",
+        measure = ["absolute", "relative", "relative", "relative", "total"],
+        x = ["Maintenance", "Activity", "Workout", "Food Intake", "Net Balance"],
+        textposition = "outside",
+        text = [f"{maint:.0f}", f"+{act_burn:.0f}", f"+{work_burn:.0f}", f"-{intake:.0f}", f"{net_bal:.0f}"],
+        y = [maint, act_burn, work_burn, -intake, 0],
+        connector = {"line":{"color":"rgba(63, 63, 63, 0.5)"}},
+        decreasing = {"marker":{"color":"#ef4444"}}, # Food (negative impact on burn)
+        increasing = {"marker":{"color":"#10b981"}}, # Burn (positive impact)
+        totals = {"marker":{"color":"#3b82f6"}}
+    ))
+    
+    fig.update_layout(
+        title="",
+        showlegend=False,
+        height=350,
+        margin=dict(l=0, r=0, t=10, b=0),
+        yaxis=dict(title="Calories (kcal)"),
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        font=dict(color="#ffffff") # Assuming dark mode or adapt
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Sleek Metrics Row below chart
+    sc1, sc2, sc3, sc4 = st.columns(4)
+    sc1.metric("Maintenance", f"{maint:.0f}", help="Base Metabolic Rate + Activity Factor")
+    sc2.metric("Activity Burn", f"{act_burn:.0f}", help="Steps and Cardio")
+    sc3.metric("Workout Burn", f"{work_burn:.0f}", help="Strength Training")
+    sc4.metric("Food Intake", f"{intake:.0f}", help="Logged Meals")
+
 
 st.divider()
 

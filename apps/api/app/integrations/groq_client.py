@@ -95,8 +95,46 @@ When providing actionable recommendations, format them as JSON:
             logger.error(f"Groq error: {e}")
             raise
 
+    def estimate_calories(self, description: str, duration: int, user_context: Dict[str, Any]) -> int:
+        """Estimate calories burned using LLM."""
+        try:
+            profile_str = ", ".join([f"{k}: {v}" for k, v in user_context.items() if v])
+            
+            prompt = f"""
+            Estimate calories burned for:
+            Activity: {description}
+            Duration: {duration} minutes
+            User Profile: {profile_str}
+            
+            Return ONLY the integer number of calories. Example: 350
+            Do not include text like 'calories' or 'kcal'. Just the number.
+            """
+            
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are a precise calorie estimation calculator. You only output integers."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=10,
+                temperature=0.1
+            )
+            
+            content = response.choices[0].message.content.strip()
+            # Extract number
+            import re
+            match = re.search(r'\d+', content)
+            if match:
+                return int(match.group())
+            return 0
+            
+        except Exception as e:
+            logger.error(f"Calorie estimation failed: {e}")
+            return 0
+
 class SafetyChecker:
     """Simple keyword-based safety check."""
+# ... (rest of SafetyChecker)
 
     RISKY_KEYWORDS = [
         "starvation",

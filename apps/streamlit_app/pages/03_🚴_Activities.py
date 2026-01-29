@@ -103,7 +103,24 @@ with tab2:
                         st.metric("Distance", f"{activity.get('distance_km', 0):.1f} km")
 
                     with col4:
-                        st.metric("Calories", f"{activity.get('calories', 0):.0f}")
+                        c1, c2 = st.columns([2, 1])
+                        with c1:
+                            st.metric("Cals (AI)", f"{(activity.get('calories') or 0):.0f}")
+                        with c2:
+                            if st.button("🗑️", key=f"del_{activity.get('id')}", help="Delete"):
+                                try:
+                                    res = requests.delete(
+                                        f"{get_api_base()}/activities/{activity.get('id')}",
+                                        params={"user_id": st.session_state.user_id},
+                                        headers=get_headers()
+                                    )
+                                    if res.status_code == 204:
+                                        st.success("Deleted!")
+                                        st.rerun()
+                                    else:
+                                        st.error("Failed")
+                                except Exception as e:
+                                    st.error(f"Err: {e}")
 
                     st.divider()
             else:

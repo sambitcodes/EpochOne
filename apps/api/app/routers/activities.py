@@ -20,13 +20,40 @@ def log_activity(
     db: Session = Depends(get_db)
 ):
     """Log a manual activity."""
+    # Fetch user for context
+    from app.models.user import User
+    user = db.query(User).filter(User.id == user_id).first()
+    
+    cals = activity.calories_burned
+    
+    # AI Estimation if needed
+    if (not cals or cals == 0) and user:
+        try:
+            from app.integrations.groq_client import GroqCoach
+            import os
+            
+            key = os.getenv("GROQ_API_KEY")
+            if key:
+                coach = GroqCoach(api_key=key)
+                context = {
+                    "weight": user.weight,
+                    "height": user.height,
+                    "age": user.age,
+                    "gender": user.gender
+                }
+                desc = f"{activity.activity_type} - {activity.intensity or 'moderate'}"
+                cals = coach.estimate_calories(desc, activity.duration_minutes, context)
+        except Exception as e:
+            logger.error(f"AI estimation error: {e}")
+            cals = 0  # Fallback
+            
     db_activity = Activity(
         user_id=user_id,
         activity_type=activity.activity_type,
         duration_minutes=activity.duration_minutes,
         distance_km=activity.distance_km,
         intensity=activity.intensity,
-        calories_burned=activity.calories_burned,
+        calories_burned=cals,
         notes=activity.notes,
         source="manual",
         date=datetime.utcnow()
@@ -34,8 +61,8 @@ def log_activity(
     db.add(db_activity)
     db.commit()
     db.refresh(db_activity)
-    logger.info(f"Activity logged: {activity.activity_type} for user {user_id}")
-    return {"id": db_activity.id, "type": activity.activity_type}
+    logger.info(f"Activity logged: {activity.activity_type} for user {user_id} (Cals: {cals})")
+    return {"id": db_activity.id, "type": activity.activity_type, "calories": cals}
 
 @router.get("/today", response_model=dict)
 def get_today_activity(
@@ -84,3 +111,22 @@ def get_activity_history(
         }
         for a in activities
     ]
+@router.delete('/{activity_id}', status_code=status.HTTP_204_NO_CONTENT)
+def delete_activity(
+    activity_id: str,
+    user_id: str,
+    db: Session = Depends(get_db)
+):
+    '''Delete an activity.'''
+    activity = db.query(Activity).filter(
+        Activity.id == activity_id,
+        Activity.user_id == user_id
+    ).first()
+    
+    if not activity:
+        raise HTTPException(status_code=404, detail='Activity not found')
+        
+    db.delete(activity)
+    db.commit()
+    return None
+

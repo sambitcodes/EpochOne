@@ -22,10 +22,40 @@ def log_workout(
     db: Session = Depends(get_db)
 ):
     """Log a new workout."""
+    # AI Calorie Estimation
+    cals = workout.calories_burned
+    
+    if not cals or cals == 0:
+        try:
+            from app.models.user import User
+            from app.integrations.groq_client import GroqCoach
+            import os
+            
+            user = db.query(User).filter(User.id == user_id).first()
+            key = os.getenv("GROQ_API_KEY")
+            
+            if user and key:
+                coach = GroqCoach(api_key=key)
+                context = {
+                    "weight": user.weight,
+                    "height": user.height,
+                    "age": user.age,
+                    "gender": user.gender
+                }
+                
+                # Construct description from exercises
+                ex_list = ", ".join([f"{e.sets}x {e.name}" for e in workout.exercises])
+                desc = f"Strength Workout (RPE {workout.rpe}): {ex_list}"
+                
+                cals = coach.estimate_calories(desc, workout.duration_minutes, context)
+        except Exception as e:
+            logger.error(f"Workout AI Calorie Est failed: {e}")
+
     db_workout = Workout(
         user_id=user_id,
         duration_minutes=workout.duration_minutes,
         rpe=workout.rpe,
+        calories_burned=cals,
         notes=workout.notes,
         date=datetime.utcnow()
     )
@@ -75,7 +105,8 @@ def get_workout_history(
             "date": w.date,
             "duration_minutes": w.duration_minutes,
             "exercise_count": len(w.exercises),
-            "rpe": w.rpe
+            "rpe": w.rpe,
+            "calories_burned": w.calories_burned
         }
         for w in workouts
     ]
@@ -114,3 +145,22 @@ def get_templates(
         {"id": t.id, "name": t.name, "description": t.description}
         for t in templates
     ]
+@router.delete('/{workout_id}', status_code=status.HTTP_204_NO_CONTENT)
+def delete_workout(
+    workout_id: str,
+    user_id: str,
+    db: Session = Depends(get_db)
+):
+    '''Delete a workout.'''
+    workout = db.query(Workout).filter(
+        Workout.id == workout_id,
+        Workout.user_id == user_id
+    ).first()
+    
+    if not workout:
+        raise HTTPException(status_code=404, detail='Workout not found')
+        
+    db.delete(workout)
+    db.commit()
+    return None
+

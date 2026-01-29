@@ -1,7 +1,7 @@
 """
 Nutrition and meal logging routes.
 """
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.db import get_db
 from app.models.nutrition import Meal, DailyNutrition
@@ -139,3 +139,22 @@ def get_meals(
         }
         for m in meals
     ]
+@router.delete('/meals/{meal_id}', status_code=204)
+def delete_meal(
+    meal_id: str,
+    user_id: str,
+    db: Session = Depends(get_db)
+):
+    '''Delete a meal.'''
+    meal = db.query(Meal).filter(
+        Meal.id == meal_id,
+        Meal.user_id == user_id
+    ).first()
+    
+    if not meal:
+        raise HTTPException(status_code=404, detail='Meal not found')
+        
+    db.delete(meal)
+    db.commit()
+    return None
+

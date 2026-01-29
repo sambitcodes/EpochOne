@@ -128,7 +128,22 @@ with tab2:
                             st.caption(f"{meal.get('calories', 0)} cal")
 
                         with col3:
-                            st.caption(f"{meal.get('protein_g', 0):.0f}g protein")
+                            c1, c2 = st.columns([3, 1])
+                            with c1:
+                                st.caption(f"{meal.get('protein_g', 0):.0f}g protein")
+                            with c2:
+                                if st.button("🗑️", key=f"del_{meal.get('id')}", help="Delete"):
+                                    try:
+                                        res = requests.delete(
+                                            f"{get_api_base()}/nutrition/meals/{meal.get('id')}",
+                                            params={"user_id": st.session_state.user_id},
+                                            headers=get_headers()
+                                        )
+                                        if res.status_code == 204:
+                                            st.success("Deleted")
+                                            st.rerun()
+                                    except:
+                                        pass
 
                         st.divider()
 
