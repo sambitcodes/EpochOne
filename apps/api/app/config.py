@@ -39,11 +39,13 @@ class Settings(BaseSettings):
         "http://localhost:8501",
         "http://localhost:3000",
         "https://*.streamlit.app",
+        "https://*.onrender.com",
     ]
     ALLOWED_HOSTS: List[str] = [
         "localhost",
         "127.0.0.1",
         "*.streamlit.app",
+        "*.onrender.com",
         "api",
     ]
 
