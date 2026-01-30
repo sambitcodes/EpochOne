@@ -4,6 +4,12 @@ import time
 from datetime import datetime
 import logging
 import os
+import sys
+
+# Debug Print for Cloud Logs
+print("DEBUG: Starting Home.py execution")
+print(f"DEBUG: sys.path: {sys.path}")
+print(f"DEBUG: CWD: {os.getcwd()}")
 
 # Setup page config first (must be before any other st calls)
 st.set_page_config(
