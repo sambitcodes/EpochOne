@@ -49,32 +49,15 @@ AUTH0_TOKEN_URL = f"https://{AUTH0_DOMAIN}/oauth/token"
 # ============ Auth Check ============
 def init_session_state():
     """Initialize session state for auth and UI."""
-    # Cookie Manager for Persistence
-    import extra_streamlit_components as stx
-    try:
-        cookie_manager = stx.CookieManager()
-    except:
-        cookie_manager = None
-
-    # 1. Restore from Session State (Fastest)
-    if "access_token" in st.session_state and st.session_state.access_token:
-        return
-
-    # 2. Restore from Cookies (Persistence)
-    # Note: cookie_manager.get_all() triggers a re-run if not cached?
-    # We use a safer check.
-    if cookie_manager:
-        cookies = cookie_manager.get_all()
-        token = cookies.get("access_token")
-        uid = cookies.get("user_id")
-        
-        if token and uid:
-             st.session_state.access_token = token
-             st.session_state.user_id = uid
-             st.session_state.user = {"id": uid, "recovered": True}
-             return
-
     if "access_token" not in st.session_state:
+        st.session_state.access_token = None
+        st.session_state.user = None
+        st.session_state.user_id = None
+        st.session_state.user_profile = None
+
+    # Handle Fitbit Callback
+    qp = st.query_params
+    if "code" in qp and "state" in qp:
         st.session_state.access_token = None
         st.session_state.user = None
         st.session_state.user_id = None
@@ -94,8 +77,20 @@ def init_session_state():
             )
             
             if resp.status_code == 200:
+                data = resp.json()
                 st.toast("✅ Fitbit connected successfully!")
+                
+                # RESTORE SESSION if token provided
+                if "access_token" in data:
+                    st.session_state.access_token = data["access_token"]
+                    if "user" in data:
+                        st.session_state.user = data["user"]
+                        st.session_state.user_id = data["user"]["id"]
+                        st.toast("🔄 Session Restored!")
+                
                 st.query_params.clear()
+                time.sleep(1)
+                st.rerun()
             else:
                 st.error(f"Fitbit connection failed: {resp.text}")
         except Exception as e:
@@ -149,11 +144,6 @@ def login_user():
                                 st.session_state.user = data["user"]
                                 st.session_state.user_id = uid
                                 
-                                # Save to Cookies (Expires in 7 days)
-                                if cookie_manager:
-                                    cookie_manager.set("access_token", tok, expires_at=datetime.now() + timedelta(days=7))
-                                    cookie_manager.set("user_id", uid, expires_at=datetime.now() + timedelta(days=7))
-                                
                                 # Fetch full profile immediately
                                 try:
                                     profile_resp = requests.get(
@@ -167,7 +157,6 @@ def login_user():
                                     pass
                                 
                                 st.success("✅ Logged in!")
-                                time.sleep(1) # Give time for cookie set
                                 st.rerun()
                             else:
                                 st.error(f"Login failed: {response.json().get('detail', 'Unknown error')}")
@@ -228,13 +217,7 @@ def login_user():
                             st.session_state.user = user_info
                             st.session_state.user_id = uid
                             
-                            # Save to Cookies
-                            if cookie_manager:
-                                cookie_manager.set("access_token", tok, expires_at=datetime.now() + timedelta(days=7))
-                                cookie_manager.set("user_id", uid, expires_at=datetime.now() + timedelta(days=7))
-                            
                             st.success("✅ Logged in via Google")
-                            time.sleep(1)
                             st.rerun()
                         else:
                             st.error(f"Backend sync failed: {sync_resp.text}")

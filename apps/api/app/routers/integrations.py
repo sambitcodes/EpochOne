@@ -11,8 +11,12 @@ from app.integrations.health_connect.processor import process_health_connect_dat
 from app.config import settings
 import logging
 from datetime import datetime
+from datetime import datetime
+from datetime import timedelta
+from jose import jwt
 from app.integrations.fitbit.client import FitbitClient
 from app.models.integrations import HealthConnectSync, AppleHealthSync, FitbitSync
+from app.models.user import User
 from app.schemas.integrations import AppleHealthWebhook, FitbitOAuthURL, FitbitCallbackRequest, FitbitStatus
 
 logger = logging.getLogger(__name__)
@@ -110,7 +114,29 @@ def fitbit_callback(
     db.add(sync)
     db.commit()
     
-    return {"status": "connected"}
+    # Generate User Token to restore session
+    user = db.query(User).filter(User.id == user_id).first()
+    token_data = {}
+    
+    if user:
+        expires = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        to_encode = {
+            "sub": user.id,
+            "email": user.email,
+            "exp": expires
+        }
+        encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+        
+        token_data = {
+            "access_token": encoded_jwt,
+            "user": {
+                "id": user.id,
+                "email": user.email,
+                "name": user.name
+            }
+        }
+    
+    return {"status": "connected", **token_data}
 
 @router.get("/fitbit/status", response_model=FitbitStatus)
 def get_fitbit_status(
