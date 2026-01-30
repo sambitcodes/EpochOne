@@ -25,8 +25,23 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize DB on startup."""
-    logger.info("Starting up...")
-    # Create tables if not exist
+    logger.info("Starting up and running migrations...")
+    
+    # Run Alembic migrations programmatically
+    try:
+        from alembic.config import Config
+        from alembic import command
+        
+        # Point to the alembic.ini in the root directory (apps/api)
+        alembic_cfg = Config("alembic.ini")
+        command.upgrade(alembic_cfg, "head")
+        logger.info("Migrations completed successfully.")
+    except Exception as e:
+        logger.error(f"Migration failed: {e}")
+        # We might want to continue even if migration fails, or re-raise
+        # For now, logging error but allowing app to start (tables might be created by create_all fallback)
+    
+    # Create tables if not exist (fallback for dev)
     Base.metadata.create_all(bind=engine)
     yield
     logger.info("Shutting down...")
