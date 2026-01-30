@@ -10,8 +10,10 @@ from dotenv import load_dotenv
 import os
 
 from app.config import settings
-from app.db import engine, Base
+from app.db import engine, Base, SessionLocal
 from app.routers import auth, workouts, activities, nutrition, metrics, integrations, ai_coach, users, wellness
+from app.models.user import User
+from app.routers.auth import get_password_hash
 
 # Load environment
 load_dotenv()
@@ -43,6 +45,26 @@ async def lifespan(app: FastAPI):
     
     # Create tables if not exist (fallback for dev)
     Base.metadata.create_all(bind=engine)
+    
+    # SEED DEMO USER
+    try:
+        db = SessionLocal()
+        demo_user = db.query(User).filter(User.email == "demo@example.com").first()
+        if not demo_user:
+            logger.info("Seeding demo user...")
+            demo_user = User(
+                email="demo@example.com",
+                username="demo",
+                hashed_password=get_password_hash("demo123"),
+                name="Demo User"
+            )
+            db.add(demo_user)
+            db.commit()
+            logger.info("Demo user seeded successfully.")
+        db.close()
+    except Exception as e:
+        logger.error(f"Seeding failed: {e}")
+
     yield
     logger.info("Shutting down...")
 
