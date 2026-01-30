@@ -47,6 +47,8 @@ AUTH0_AUTHORIZE_URL = f"https://{AUTH0_DOMAIN}/authorize"
 AUTH0_TOKEN_URL = f"https://{AUTH0_DOMAIN}/oauth/token"
 
 # ============ Auth Check ============
+def init_session_state():
+    """Initialize session state for auth and UI."""
     # Cookie Manager for Persistence
     import extra_streamlit_components as stx
     try:
