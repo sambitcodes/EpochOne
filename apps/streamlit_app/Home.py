@@ -142,9 +142,11 @@ def login_user():
                     )
                     
                     # RENDER THE COMPONENT
+                    # Use formatted redirect_uri for production
+                    app_url = os.getenv("STREAMLIT_URL", "http://localhost:8501")
                     result = oauth2.authorize_button(
                         name="Login with Google",
-                        redirect_uri="http://localhost:8501",
+                        redirect_uri=app_url,
                         scope="openid email profile",
                         key="google_auth_btn_revert",
                         use_container_width=True,
