@@ -1,31 +1,43 @@
-import streamlit as st
-import requests
-import time
-from datetime import datetime
-import logging
-import os
 import sys
+import os
 
-# Debug Print for Cloud Logs
+# Debug Print for Cloud Logs - CRITICAL
 print("DEBUG: Starting Home.py execution")
 print(f"DEBUG: sys.path: {sys.path}")
 print(f"DEBUG: CWD: {os.getcwd()}")
+sys.stdout.flush()
 
-# Setup page config first (must be before any other st calls)
-st.set_page_config(
-    page_title="EpochOne",
-    page_icon="🏋️",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+try:
+    import streamlit as st
+    import requests
+    import time
+    from datetime import datetime
+    import logging
+    
+    # Setup page config first (must be before any other st calls)
+    st.set_page_config(
+        page_title="EpochOne",
+        page_icon="🏋️",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+    
+    print("DEBUG: Streamlit imported and configured")
+    
+    # Import shared styles
+    from ui.styles import apply_theme
+    apply_theme()
+    
+    logger = logging.getLogger(__name__)
+    
+    from streamlit_oauth import OAuth2Component
+    print("DEBUG: Imports successful")
 
-# Import shared styles
-from ui.styles import apply_theme
-apply_theme()
-
-logger = logging.getLogger(__name__)
-
-from streamlit_oauth import OAuth2Component
+except Exception as e:
+    print(f"CRITICAL STARTUP ERROR: {e}")
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
 
 # Auth0 Configuration
 AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN")
