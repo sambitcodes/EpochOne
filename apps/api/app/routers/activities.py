@@ -67,25 +67,68 @@ def log_activity(
 @router.get("/today", response_model=dict)
 def get_today_activity(
     user_id: str,
+    date_str: str = None,
     db: Session = Depends(get_db)
 ):
-    """Get today's activities summary."""
-    today = datetime.utcnow().date()
+    """Get today's activities summary (IST aware)."""
+    # 1. Determine Target Date (IST)
+    if date_str:
+        try:
+            target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError:
+            target_date = (datetime.utcnow() + timedelta(hours=5, minutes=30)).date()
+    else:
+        target_date = (datetime.utcnow() + timedelta(hours=5, minutes=30)).date()
+
+    # 2. Calculate UTC Range for this IST Day
+    # Start: TargetDay 00:00 IST -> -5:30 -> PreviousDay 18:30 UTC
+    # End: TargetDay 23:59 IST -> -5:30 -> TargetDay 18:29 UTC
+    start_ist = datetime.combine(target_date, datetime.min.time())
+    end_ist = datetime.combine(target_date, datetime.max.time())
+    
+    start_utc = start_ist - timedelta(hours=5, minutes=30)
+    end_utc = end_ist - timedelta(hours=5, minutes=30)
+
+    # 3. Fetch Manual Activities
     activities = db.query(Activity).filter(
         Activity.user_id == user_id,
-        Activity.date >= today
+        Activity.date >= start_utc,
+        Activity.date <= end_utc
     ).all()
 
     total_distance = sum(a.distance_km or 0 for a in activities)
-    total_calories = sum(a.calories_burned or 0 for a in activities)
-    total_duration = sum(a.duration_minutes for a in activities)
+    manual_calories = sum(a.calories_burned or 0 for a in activities)
+    total_duration = sum(a.duration_minutes or 0 for a in activities)
 
-    return {
+    today_stats = {
         "total_activities": len(activities),
         "total_duration_minutes": total_duration,
         "total_distance_km": total_distance,
-        "total_calories": total_calories
+        "manual_calories": manual_calories,
+        "step_calories": 0,
+        "total_calories": manual_calories, # Will update with steps
+        "total_steps": 0
     }
+
+    # 4. Merge Fitbit Steps / AI Step Calc
+    from app.models.integrations import FitbitSync
+    fitbit = db.query(FitbitSync).filter(FitbitSync.user_id == user_id).first()
+    
+    if fitbit and fitbit.last_sync:
+        # Check if sync was today (Convert UTC sync time to IST date)
+        sync_ist = fitbit.last_sync + timedelta(hours=5, minutes=30)
+        
+        if sync_ist.date() == target_date:
+            steps = fitbit.last_step_count
+            today_stats["total_steps"] = steps
+            
+            # AI/Formula Calculation: 0.045 kcal/step (Standard/Active)
+            # This is "individually calculated" as requested, separate from BMR.
+            step_cals = steps * 0.045
+            today_stats["step_calories"] = step_cals
+            today_stats["total_calories"] += step_cals
+            
+    return today_stats
 
 @router.get("/history", response_model=List[dict])
 def get_activity_history(

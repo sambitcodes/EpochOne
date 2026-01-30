@@ -57,8 +57,38 @@ def log_workout(
         rpe=workout.rpe,
         calories_burned=cals,
         notes=workout.notes,
-        date=datetime.utcnow()
+        date=workout.date or datetime.utcnow()
     )
+
+    # Update Streak
+    try:
+        from app.models.user import User
+        user = db.query(User).filter(User.id == user_id).first()
+        if user:
+            # Check last workout date
+            last_workout = db.query(Workout).filter(
+                Workout.user_id == user_id
+            ).order_by(Workout.date.desc()).first()
+            
+            current_date = (workout.date or datetime.utcnow()).date()
+            
+            if not last_workout:
+                user.streak_workout = 1
+            else:
+                last_date = last_workout.date.date()
+                delta = (current_date - last_date).days
+                
+                if delta == 1:
+                    user.streak_workout += 1
+                elif delta > 1:
+                    user.streak_workout = 1
+                # If delta == 0, keep same streak
+            
+            # Update XP (Simple Gamification) for logging
+            user.xp += 50
+    except Exception as e:
+        logger.error(f"Streak update failed: {e}")
+
     db.add(db_workout)
     db.flush()
 
@@ -70,7 +100,10 @@ def log_workout(
             sets=ex.sets,
             reps=ex.reps,
             weight=ex.weight,
+            distance_km=ex.distance_km,
+            duration_seconds=ex.duration_seconds,
             rest_seconds=ex.rest_seconds,
+            failure=ex.failure,
             notes=ex.notes,
             order=i
         )
@@ -84,6 +117,95 @@ def log_workout(
         "id": db_workout.id,
         "date": db_workout.date,
         "exercises_count": len(workout.exercises)
+    }
+
+@router.get("/daily-analysis", response_model=dict)
+def get_daily_workout_analysis(
+    user_id: str,
+    date_str: str, # YYYY-MM-DD
+    db: Session = Depends(get_db)
+):
+    """Get AI analysis for a specific day's workouts."""
+    try:
+        target_date = datetime.strptime(date_str, "%Y-%m-%d")
+        next_day = target_date + timedelta(days=1)
+        
+        workouts = db.query(Workout).filter(
+            Workout.user_id == user_id,
+            Workout.date >= target_date,
+            Workout.date < next_day
+        ).all()
+        
+        if not workouts:
+            return {"analysis": "No workouts found for this day."}
+            
+        total_uns = len(workouts)
+        total_mins = sum(w.duration_minutes for w in workouts)
+        total_cals = sum(w.calories_burned or 0 for w in workouts)
+        avg_rpe = sum(w.rpe or 0 for w in workouts) / total_uns if total_uns else 0
+        
+        # Format for AI
+        summary = f"Total Workouts: {total_uns}\nTotal Duration: {total_mins} mins\nTotal Calories: {total_cals}\nAvg Intensity (RPE): {avg_rpe:.1f}/10\n\nExercises performed:\n"
+        
+        for w in workouts:
+            for ex in w.exercises:
+                details = ""
+                if ex.distance_km:
+                    details = f"{ex.distance_km}km in {ex.duration_seconds//60}min"
+                else:
+                    details = f"{ex.sets} sets x {ex.reps or 'N/A'} reps ({ex.weight or 0} kg)"
+                
+                if ex.failure:
+                    details += " [FAILURE]"
+                    
+                summary += f" - {ex.name}: {details}\n"
+                
+        # Call AI
+        from app.integrations.groq_client import GroqCoach
+        import os
+        key = os.getenv("GROQ_API_KEY")
+        
+        if key:
+            coach = GroqCoach(api_key=key)
+            prompt = f"Analyze this full day of training and provide 3 bullet points on recovery, nutrition, and fatigue management based on the volume and intensity. Be specific to the muscles worked. \n\n{summary}"
+            response = coach.chat(prompt, user_context={})
+            return {"analysis": response.get("text", "Analysis unavailable.")}
+            
+        return {"analysis": "AI Service unavailable."}
+        
+    except Exception as e:
+        logger.error(f"Analysis failed: {e}")
+        return {"analysis": "Error generating analysis."}
+
+@router.get("/today", response_model=dict)
+def get_today_workouts(
+    user_id: str,
+    date_str: str = None,
+    db: Session = Depends(get_db)
+):
+    """Get today's workout summary."""
+    if date_str:
+        try:
+            target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError:
+            target_date = datetime.utcnow().date()
+    else:
+        target_date = datetime.utcnow().date()
+
+    start_of_day = datetime.combine(target_date, datetime.min.time())
+    end_of_day = datetime.combine(target_date, datetime.max.time())
+
+    workouts = db.query(Workout).filter(
+        Workout.user_id == user_id,
+        Workout.date >= start_of_day,
+        Workout.date <= end_of_day
+    ).all()
+
+    total_calories = sum(w.calories_burned or 0 for w in workouts)
+    
+    return {
+        "count": len(workouts),
+        "calories": total_calories
     }
 
 @router.get("/history", response_model=List[dict])
@@ -142,7 +264,7 @@ def get_templates(
         WorkoutTemplate.user_id == user_id
     ).all()
     return [
-        {"id": t.id, "name": t.name, "description": t.description}
+        {"id": t.id, "name": t.name, "description": t.description, "exercises_json": t.exercises_json}
         for t in templates
     ]
 @router.delete('/{workout_id}', status_code=status.HTTP_204_NO_CONTENT)
@@ -163,4 +285,3 @@ def delete_workout(
     db.delete(workout)
     db.commit()
     return None
-

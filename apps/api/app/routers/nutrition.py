@@ -43,8 +43,38 @@ def log_meal(
         carbs_g=meal.carbs_g,
         fat_g=meal.fat_g,
         notes=meal.notes,
-        date=datetime.utcnow()
+        date=meal.date or datetime.utcnow()
     )
+
+    # Update Streak
+    try:
+        from app.models.user import User
+        user = db.query(User).filter(User.id == user_id).first()
+        if user:
+            # Check last meal date
+            last_meal = db.query(Meal).filter(
+                Meal.user_id == user_id
+            ).order_by(Meal.date.desc()).first()
+            
+            current_date = (meal.date or datetime.utcnow()).date()
+            
+            if not last_meal:
+                user.streak_nutrition = 1
+            else:
+                last_date = last_meal.date.date()
+                delta = (current_date - last_date).days
+                
+                if delta == 1:
+                    user.streak_nutrition += 1
+                elif delta > 1:
+                    user.streak_nutrition = 1
+                # If delta == 0, keep same streak
+            
+            # XP for logging meal
+            user.xp += 10
+    except Exception as e:
+        logger.error(f"Streak update failed: {e}")
+
     db.add(db_meal)
     db.commit()
     db.refresh(db_meal)
@@ -93,13 +123,26 @@ def estimate_meal_macros(request: MealEstimateRequest):
 @router.get("/today", response_model=dict)
 def get_today_nutrition(
     user_id: str,
+    date_str: str = None,
     db: Session = Depends(get_db)
 ):
-    """Get today's nutrition summary."""
-    today = datetime.utcnow().date()
+    """Get nutrition summary for a specific date (default: today UTC)."""
+    if date_str:
+        try:
+            target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError:
+            target_date = datetime.utcnow().date()
+    else:
+        target_date = datetime.utcnow().date()
+
+    # Filter for the specific day (00:00 to 23:59)
+    start_of_day = datetime.combine(target_date, datetime.min.time())
+    end_of_day = datetime.combine(target_date, datetime.max.time())
+
     meals = db.query(Meal).filter(
         Meal.user_id == user_id,
-        Meal.date >= today
+        Meal.date >= start_of_day,
+        Meal.date <= end_of_day
     ).all()
 
     total_calories = sum(m.calories for m in meals)

@@ -15,21 +15,27 @@ class GroqCoach:
         self.client = Groq(api_key=api_key)
         self.model = model
         self.system_prompt = """
-You are an expert AI fitness coach. You provide personalized training, nutrition, and recovery advice.
+You are **EpochOne AI**, an elite fitness and wellness coach. Your mission is to provide premium, science-backed, and highly motivational advice.
 
-If a "USER PROFILE" is provided below, use those details (weight, height, goals, etc.) to personalize your answers and perform calculations like BMI or target calorie adjustments.
+### 🎨 Formatting Guidelines:
+- **Use Markdown**: Use bolding, headers (###), and bullet points extensively.
+- **Tables**: When suggesting workout splits or meal plans, use Markdown tables.
+- **Tone**: Professional, encouraging, and precise.
+- **DISCLAIMER**: Always include "⚠️ *This is not medical advice. Consult a professional before starting a new regimen.*" at the end.
 
-IMPORTANT SAFETY RULES:
-- Always include disclaimer: "This is not medical advice. Consult a professional if needed."
-- Detect and avoid recommending: extreme calorie deficits, dangerous supplements, risky exercises
-- If user mentions injury or medical concern, recommend professional medical evaluation
-- Keep tone motivational but realistic
+### 🤖 Structured Actions:
+When you recommend a specific change to a user's plan (like a new workout or macro adjustment), you **MUST** append a JSON block at the very end of your message, wrapped in `[ACTION_JSON_START]` and `[ACTION_JSON_END]`.
 
-When providing actionable recommendations, format them as JSON:
+Valid action types: `create_workout`, `update_macros`, `plan_week`.
+
+Example:
+Your conversation text here...
+[ACTION_JSON_START]
 {
-  "action_type": "create_workout" | "update_macros" | "add_quest" | "plan_week",
+  "action_type": "create_workout",
   "details": { ... }
 }
+[ACTION_JSON_END]
 """
 
     def chat(
@@ -37,9 +43,10 @@ When providing actionable recommendations, format them as JSON:
         message: str,
         mode: str = "general",
         user_id: str = None,
-        user_context: Dict[str, Any] = None
+        user_context: Dict[str, Any] = None,
+        history: list = None
     ) -> Dict[str, Any]:
-        """Chat with coach."""
+        """Chat with coach with optional history."""
         try:
             # Prepare context string
             context_str = ""
@@ -56,12 +63,23 @@ When providing actionable recommendations, format them as JSON:
                 {
                     "role": "system",
                     "content": self.system_prompt + context_str
-                },
-                {
-                    "role": "user",
-                    "content": prompt
                 }
             ]
+            
+            # Inject history if provided
+            if history:
+                # Format: [{"role": "user", "content": "..."}, ...]
+                for h in history:
+                    messages.append({
+                        "role": h["role"],
+                        "content": h["content"]
+                    })
+
+            # Add current message
+            messages.append({
+                "role": "user",
+                "content": prompt
+            })
 
 
             response = self.client.chat.completions.create(
@@ -75,13 +93,27 @@ When providing actionable recommendations, format them as JSON:
 
             # Try to extract JSON actions
             actions = {}
-            if "{" in text and "action_type" in text:
+            if "[ACTION_JSON_START]" in text:
                 try:
-                    # Simple JSON extraction (not bulletproof)
+                    start = text.find("[ACTION_JSON_START]") + len("[ACTION_JSON_START]")
+                    end = text.find("[ACTION_JSON_END]", start)
+                    actions_json = text[start:end].strip()
+                    actions = json.loads(actions_json)
+                except Exception as e:
+                    logger.error(f"Failed to parse tagged JSON: {e}")
+                    # Fallback to old character-based search
+                    try:
+                        start = text.find("{")
+                        end = text.rfind("}") + 1
+                        actions = json.loads(text[start:end])
+                    except:
+                        pass
+            elif "{" in text and '"action_type":' in text:
+                try:
                     start = text.find("{")
                     end = text.rfind("}") + 1
                     actions = json.loads(text[start:end])
-                except json.JSONDecodeError:
+                except:
                     pass
 
             logger.info(f"Coach response for user {user_id} in mode {mode}")

@@ -12,3 +12,4 @@ pydantic==2.8.2
 pytz==2024.1
 python-dateutil==2.9.0
 PyJWT==2.10.1
+extra-streamlit-components==0.1.71

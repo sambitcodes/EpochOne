@@ -2,6 +2,8 @@
 import streamlit as st
 import requests
 from datetime import datetime
+import plotly.express as px
+import pandas as pd
 
 st.set_page_config(page_title="Nutrition", page_icon="🍽️", layout="wide")
 
@@ -26,6 +28,13 @@ with tab1:
     st.subheader("Log Meal")
 
     with st.form("meal_form"):
+        # Date & Time Selection
+        d_col1, d_col2 = st.columns(2)
+        with d_col1:
+            meal_date = st.date_input("Date", value=datetime.now())
+        with d_col2:
+            meal_time = st.time_input("Time", value=datetime.now().time())
+
         col1, col2 = st.columns(2)
 
         with col1:
@@ -51,6 +60,8 @@ with tab1:
         notes = st.text_area("Notes", placeholder="Optional notes")
 
         if st.form_submit_button("✅ Log Meal"):
+            full_dt = datetime.combine(meal_date, meal_time)
+            
             payload = {
                 "name": meal_name,
                 "meal_type": meal_type.lower(),
@@ -58,7 +69,8 @@ with tab1:
                 "protein_g": protein,
                 "carbs_g": carbs,
                 "fat_g": fat,
-                "notes": notes
+                "notes": notes,
+                "date": full_dt.strftime("%Y-%m-%dT%H:%M:%S")
             }
 
             try:
@@ -71,6 +83,9 @@ with tab1:
 
                 if response.status_code == 200:
                     st.success("✅ Meal logged!")
+                    import time
+                    time.sleep(1)
+                    st.rerun()
                 else:
                     st.error(f"Failed: {response.text}")
 
@@ -81,77 +96,120 @@ with tab2:
     st.subheader("Today's Nutrition")
 
     try:
-        response = requests.get(
+        # Fetch Summary
+        sum_resp = requests.get(
             f"{get_api_base()}/nutrition/today",
             params={"user_id": st.session_state.user_id},
             headers=get_headers()
         )
+        
+        # Fetch Meals for Charts & List
+        meals_resp = requests.get(
+            f"{get_api_base()}/nutrition/meals?days=1",
+            params={"user_id": st.session_state.user_id},
+            headers=get_headers()
+        )
 
-        if response.status_code == 200:
-            data = response.json()
+        if sum_resp.status_code == 200 and meals_resp.status_code == 200:
+            data = sum_resp.json()
+            meals = meals_resp.json()
 
+            # 1. METRICS ROW
             col1, col2, col3, col4 = st.columns(4)
+            with col1: st.metric("Calories", f"{data.get('calories', 0)} / 2200")
+            with col2: st.metric("Protein", f"{data.get('protein_g', 0):.0f}g / 150g")
+            with col3: st.metric("Carbs", f"{data.get('carbs_g', 0):.0f}g / 250g")
+            with col4: st.metric("Fat", f"{data.get('fat_g', 0):.0f}g / 73g")
+            
+            st.divider()
 
-            with col1:
-                st.metric("Calories", f"{data.get('calories', 0)} / 2200")
+            # 2. CHARTS ROW
+            chart_col1, chart_col2 = st.columns(2)
+            
+            with chart_col1:
+                st.markdown("#### Macro Distribution")
+                # Calculate calories from macros
+                p_cals = data.get('protein_g', 0) * 4
+                c_cals = data.get('carbs_g', 0) * 4
+                f_cals = data.get('fat_g', 0) * 9
+                
+                if (p_cals + c_cals + f_cals) > 0:
+                    macro_df = pd.DataFrame([
+                        {"Macro": "Protein", "Calories": p_cals},
+                        {"Macro": "Carbs", "Calories": c_cals},
+                        {"Macro": "Fat", "Calories": f_cals}
+                    ])
+                    fig_macro = px.pie(
+                        macro_df, values='Calories', names='Macro', 
+                        color='Macro',
+                        color_discrete_map={'Protein':'#3498DB', 'Carbs':'#2ECC71', 'Fat':'#E74C3C'},
+                        hole=0.4
+                    )
+                    fig_macro.update_traces(textinfo='percent+label')
+                    st.plotly_chart(fig_macro, use_container_width=True)
+                else:
+                    st.info("Log meals to see macro breakdown.")
 
-            with col2:
-                st.metric("Protein", f"{data.get('protein_g', 0):.0f}g / 150g")
-
-            with col3:
-                st.metric("Carbs", f"{data.get('carbs_g', 0):.0f}g / 250g")
-
-            with col4:
-                st.metric("Fat", f"{data.get('fat_g', 0):.0f}g / 73g")
+            with chart_col2:
+                # User asked for Micros, but we don't have them. 
+                # We'll show Meal Type distribution instead as a useful "Partition"
+                st.markdown("#### Meal Sources") # "Micros" placeholder
+                
+                if meals:
+                    # Aggregate by meal_type
+                    type_counts = {}
+                    for m in meals:
+                        mt = m.get('meal_type', 'snack').title()
+                        type_counts[mt] = type_counts.get(mt, 0) + m.get('calories', 0)
+                    
+                    if type_counts:
+                        micro_df = pd.DataFrame(list(type_counts.items()), columns=['Source', 'Calories'])
+                        fig_micro = px.pie(
+                            micro_df, values='Calories', names='Source',
+                            color_discrete_sequence=px.colors.qualitative.Pastel,
+                            hole=0.4
+                        )
+                        fig_micro.update_traces(textinfo='percent+label')
+                        st.plotly_chart(fig_micro, use_container_width=True)
+                else:
+                    st.info("Log meals to see breakdown.")
 
             st.divider()
 
+            # 3. MEALS LIST
             st.subheader("Meals Today")
+            for meal in meals:
+                col1, col2, col3 = st.columns([2, 1, 1])
+                with col1:
+                    st.write(f"**{meal.get('name')}** - {meal.get('meal_type', '').title()}")
+                with col2:
+                    st.caption(f"{meal.get('calories', 0)} cal")
+                with col3:
+                    c1, c2 = st.columns([3, 1])
+                    with c1: st.caption(f"{meal.get('protein_g', 0):.0f}g protein")
+                    with c2:
+                         # Delete button closure
+                         def delete_btn(mid):
+                             st.button("🗑️", key=f"del_{mid}", help="Delete", on_click=lambda: delete_meal_wrapper(mid))
 
-            try:
-                meals_resp = requests.get(
-                    f"{get_api_base()}/nutrition/meals?days=1",
-                    params={"user_id": st.session_state.user_id},
-                    headers=get_headers()
-                )
+                         delete_btn(meal.get('id'))
+                st.divider()
 
-                if meals_resp.status_code == 200:
-                    meals = meals_resp.json()
-
-                    for meal in meals:
-                        col1, col2, col3 = st.columns([2, 1, 1])
-
-                        with col1:
-                            st.write(f"**{meal.get('name')}** - {meal.get('meal_type', '').title()}")
-
-                        with col2:
-                            st.caption(f"{meal.get('calories', 0)} cal")
-
-                        with col3:
-                            c1, c2 = st.columns([3, 1])
-                            with c1:
-                                st.caption(f"{meal.get('protein_g', 0):.0f}g protein")
-                            with c2:
-                                if st.button("🗑️", key=f"del_{meal.get('id')}", help="Delete"):
-                                    try:
-                                        res = requests.delete(
-                                            f"{get_api_base()}/nutrition/meals/{meal.get('id')}",
-                                            params={"user_id": st.session_state.user_id},
-                                            headers=get_headers()
-                                        )
-                                        if res.status_code == 204:
-                                            st.success("Deleted")
-                                            st.rerun()
-                                    except:
-                                        pass
-
-                        st.divider()
-
-            except Exception as e:
-                st.error(f"Failed to load meals: {e}")
+        else:
+            st.warning("Could not load data.")
 
     except Exception as e:
         st.error(f"Failed to load nutrition data: {e}")
+
+# Helper for delete (needs to be outside loop or handled carefully with state)
+def delete_meal_wrapper(mid):
+    try:
+        requests.delete(
+            f"{get_api_base()}/nutrition/meals/{mid}",
+            params={"user_id": st.session_state.user_id},
+            headers=get_headers()
+        )
+    except: pass
 
 with tab3:
     st.subheader("🤖 AI Meal Estimator")
@@ -212,6 +270,7 @@ with tab3:
                 if save_resp.status_code == 200:
                     st.success("✅ Meal saved to today's log!")
                     del st.session_state.current_estimation
+                    st.rerun()
                 else:
                     st.error("Failed to save meal.")
             except Exception as e:

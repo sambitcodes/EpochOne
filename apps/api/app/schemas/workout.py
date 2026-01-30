@@ -11,7 +11,10 @@ class WorkoutExerciseCreate(BaseModel):
     sets: int
     reps: Optional[int] = None
     weight: Optional[float] = None
+    distance_km: Optional[float] = None
+    duration_seconds: Optional[int] = None
     rest_seconds: Optional[int] = None
+    failure: bool = False
     notes: Optional[str] = None
     order: int = 0
 
@@ -21,6 +24,7 @@ class WorkoutCreate(BaseModel):
     rpe: Optional[int] = None
     calories_burned: Optional[int] = None
     notes: Optional[str] = None
+    date: Optional[datetime] = None
     exercises: List[WorkoutExerciseCreate]
 
 class WorkoutResponse(BaseModel):

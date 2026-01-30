@@ -161,7 +161,25 @@ def sync_fitbit_data(
     try:
         # Sync Steps (Activity Intraday/Daily)
         day = datetime.now().strftime("%Y-%m-%d")
-        data = client.get_data(sync.access_token, f"/user/-/activities/date/{day}.json")
+        endpoint = f"/user/-/activities/date/{day}.json"
+        
+        try:
+            data = client.get_data(sync.access_token, endpoint)
+        except Exception as e:
+            if "401" in str(e) and sync.refresh_token:
+                logger.info(f"Fitbit token expired for user {user_id}, refreshing...")
+                new_tokens = client.refresh_token(sync.refresh_token)
+                
+                # Update DB
+                sync.access_token = new_tokens.get("access_token")
+                sync.refresh_token = new_tokens.get("refresh_token")
+                db.commit()
+                
+                # Retry
+                data = client.get_data(sync.access_token, endpoint)
+            else:
+                raise e
+
         summary = data.get("summary", {})
         
         steps = summary.get("steps", 0)
@@ -172,9 +190,6 @@ def sync_fitbit_data(
         sync.last_step_count = steps
         sync.last_calories_burned = cals_out
         sync.sync_status = "synced"
-        
-        # Ideally also create an Activity entry?
-        # For this request, we just need to "display them"
         
         db.commit()
         

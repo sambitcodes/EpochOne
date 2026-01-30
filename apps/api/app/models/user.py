@@ -77,6 +77,7 @@ class User(Base):
     health_connect_sync = relationship("HealthConnectSync", back_populates="user", uselist=False, cascade="all, delete-orphan")
     apple_health_sync = relationship("AppleHealthSync", back_populates="user", uselist=False, cascade="all, delete-orphan")
     fitbit_sync = relationship("FitbitSync", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    wellness_logs = relationship("WellnessLog", back_populates="user", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<User {self.email} ({self.auth0_sub})>"

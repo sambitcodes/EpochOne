@@ -85,6 +85,8 @@ services:
       AUTH0_CLIENT_SECRET: ${AUTH0_CLIENT_SECRET}
     ports:
       - "8501:8501"
+    volumes:
+      - ./apps/streamlit_app:/app
     depends_on:
       - api
     command: streamlit run Home.py

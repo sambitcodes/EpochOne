@@ -3,6 +3,7 @@ import requests
 import time
 from datetime import datetime
 import logging
+import os
 
 # Setup page config first (must be before any other st calls)
 st.set_page_config(
@@ -18,6 +19,15 @@ apply_theme()
 
 logger = logging.getLogger(__name__)
 
+from streamlit_oauth import OAuth2Component
+
+# Auth0 Configuration
+AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN")
+AUTH0_CLIENT_ID = os.getenv("AUTH0_CLIENT_ID")
+AUTH0_CLIENT_SECRET = os.getenv("AUTH0_CLIENT_SECRET")
+AUTH0_AUTHORIZE_URL = f"https://{AUTH0_DOMAIN}/authorize"
+AUTH0_TOKEN_URL = f"https://{AUTH0_DOMAIN}/oauth/token"
+
 # ============ Auth Check ============
 def init_session_state():
     """Initialize session state for auth and UI."""
@@ -25,16 +35,12 @@ def init_session_state():
         st.session_state.access_token = None
         st.session_state.user = None
         st.session_state.user_id = None
+        st.session_state.user_profile = None
 
-    # Handle Fitbit Callback (Redirects to Home)
+    # Handle Fitbit Callback
     qp = st.query_params
     if "code" in qp and "state" in qp:
         try:
-            # We don't have access_token if session reset, but we have user_id in state
-            # The backend callback doesn't strictly require a bearer token if we pass user_id in body/state
-            # But our current API router might enforce dependency?
-            # Let's check router. NO, fitbit_callback endpoint depends on get_db but not get_current_user/auth
-            
             from utils import get_api_base
             code = qp["code"]
             state = qp["state"]
@@ -45,7 +51,7 @@ def init_session_state():
             )
             
             if resp.status_code == 200:
-                st.toast("✅ Fitbit connected successfully! Please log in again if needed.")
+                st.toast("✅ Fitbit connected successfully!")
                 st.query_params.clear()
             else:
                 st.error(f"Fitbit connection failed: {resp.text}")
@@ -55,15 +61,6 @@ def init_session_state():
 init_session_state()
 
 from utils import get_api_base
-from streamlit_oauth import OAuth2Component
-import os
-
-# Auth0 Configuration
-AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN")
-AUTH0_CLIENT_ID = os.getenv("AUTH0_CLIENT_ID")
-AUTH0_CLIENT_SECRET = os.getenv("AUTH0_CLIENT_SECRET")
-AUTH0_AUTHORIZE_URL = f"https://{AUTH0_DOMAIN}/authorize"
-AUTH0_TOKEN_URL = f"https://{AUTH0_DOMAIN}/oauth/token"
 
 def is_authenticated():
     """Check if user is logged in."""
@@ -102,16 +99,19 @@ def login_user():
                             )
                             if response.status_code == 200:
                                 data = response.json()
-                                st.session_state.access_token = data["access_token"]
+                                tok = data["access_token"]
+                                uid = data["user"]["id"]
+                                
+                                st.session_state.access_token = tok
                                 st.session_state.user = data["user"]
-                                st.session_state.user_id = data["user"]["id"]
+                                st.session_state.user_id = uid
                                 
                                 # Fetch full profile immediately
                                 try:
                                     profile_resp = requests.get(
                                         f"{api_url}/users/profile",
-                                        params={"user_id": st.session_state.user_id, "_t": str(time.time())},
-                                        headers={"Authorization": f"Bearer {st.session_state.access_token}"}
+                                        params={"user_id": uid, "_t": str(time.time())},
+                                        headers={"Authorization": f"Bearer {tok}"}
                                     )
                                     if profile_resp.status_code == 200:
                                         st.session_state.user_profile = profile_resp.json()
@@ -127,31 +127,34 @@ def login_user():
 
         with col2:
             st.info("🌐 Social Login")
-            if not AUTH0_DOMAIN or not AUTH0_CLIENT_ID or not AUTH0_CLIENT_SECRET:
-                st.error("Auth0 configuration is missing in environment.")
+            
+            if not AUTH0_DOMAIN or not AUTH0_CLIENT_ID:
+                st.error("Social login configuration missing.")
             else:
-                oauth2 = OAuth2Component(
-                    AUTH0_CLIENT_ID,
-                    AUTH0_CLIENT_SECRET,
-                    AUTH0_AUTHORIZE_URL,
-                    AUTH0_TOKEN_URL,
-                    AUTH0_TOKEN_URL,
-                    None
-                )
-                
-                result = oauth2.authorize_button(
-                    name="Connect with Google ",
-                    redirect_uri="http://localhost:8501",
-                    scope="openid email profile",
-                    key="auth0_button",
-                    use_container_width=True,
-                )
-                
-                if result and "token" in result:
-                    token = result.get("token")
-                    id_token = token.get("id_token")
+                try:
+                    oauth2 = OAuth2Component(
+                        AUTH0_CLIENT_ID,
+                        AUTH0_CLIENT_SECRET,
+                        AUTH0_AUTHORIZE_URL,
+                        AUTH0_TOKEN_URL,
+                        AUTH0_TOKEN_URL,
+                        None
+                    )
                     
-                    try:
+                    # RENDER THE COMPONENT
+                    result = oauth2.authorize_button(
+                        name="Login with Google",
+                        redirect_uri="http://localhost:8501",
+                        scope="openid email profile",
+                        key="google_auth_btn_revert",
+                        use_container_width=True,
+                    )
+                    
+                    if result and "token" in result:
+                        token = result.get("token")
+                        tok = token.get("access_token")
+                        id_token = token.get("id_token")
+                        
                         import jwt
                         user_info = jwt.decode(id_token, options={"verify_signature": False})
                         
@@ -168,32 +171,40 @@ def login_user():
                         
                         if sync_resp.status_code == 200:
                             sync_data = sync_resp.json()
-                            st.session_state.access_token = token.get("access_token")
+                            uid = sync_data["user_id"]
+                            
+                            st.session_state.access_token = tok
                             st.session_state.user = user_info
-                            st.session_state.user_id = sync_data["user_id"]
+                            st.session_state.user_id = uid
+                            
                             st.success("✅ Logged in via Google")
                             st.rerun()
                         else:
                             st.error(f"Backend sync failed: {sync_resp.text}")
-                    except Exception as e:
-                        st.error(f"Auth processing error: {e}")
+                except Exception as e:
+                    st.error(f"OAuth error: {e}")
 
+            st.divider()
             if st.button("🚀 Login as Demo User (One-Click)", use_container_width=True):
                 try:
                     with st.spinner("Logging in..."):
                         resp = requests.post(f"{get_api_base()}/auth/dev-login")
                         if resp.status_code == 200:
                             data = resp.json()
-                            st.session_state.access_token = data["access_token"]
+                            tok = data["access_token"]
+                            uid = data["user"]["id"]
+
+                            st.session_state.access_token = tok
                             st.session_state.user = data["user"]
-                            st.session_state.user_id = data["user"]["id"]
+                            st.session_state.user_id = uid
                             
+
                             # Fetch full profile immediately
                             try:
                                 profile_resp = requests.get(
                                     f"{get_api_base()}/users/profile",
-                                    params={"user_id": st.session_state.user_id, "_t": str(time.time())},
-                                    headers={"Authorization": f"Bearer {st.session_state.access_token}"}
+                                    params={"user_id": uid, "_t": str(time.time())},
+                                    headers={"Authorization": f"Bearer {tok}"}
                                 )
                                 if profile_resp.status_code == 200:
                                     st.session_state.user_profile = profile_resp.json()
@@ -439,15 +450,18 @@ def main():
     # Main dashboard
     st.title("📊 Personal Dashboard")
     
-    # Real-time Header
-    now = datetime.now()
+    # Real-time Header (IST)
+    from datetime import timedelta
+    now_utc = datetime.utcnow()
+    now_ist = now_utc + timedelta(hours=5, minutes=30)
+    
     col_time1, col_time2 = st.columns([2, 1])
     with col_time1:
         st.subheader(f"Welcome back, {profile.get('name', 'Athlete')}! ✨")
     with col_time2:
         st.markdown(
-            f"📅 **{now.strftime('%A, %b %d')}**  \n"
-            f"⏰ **{now.strftime('%I:%M %p')}**"
+            f"📅 **{now_ist.strftime('%d-%m-%Y')}**  \n"
+            f"⏰ **{now_ist.strftime('%H:%M:%S')}**"
         )
     
     st.divider()
@@ -457,27 +471,45 @@ def main():
         api_url = get_api_base()
         headers = {"Authorization": f"Bearer {st.session_state.access_token}"}
         
+        # API expects YYYY-MM-DD
+        today_iso = now_ist.strftime("%Y-%m-%d")
+        
         # Today's Activities
-        act_resp = requests.get(f"{api_url}/activities/today", params={"user_id": st.session_state.user_id}, headers=headers)
+        act_resp = requests.get(f"{get_api_base()}/activities/today", params={"user_id": st.session_state.user_id, "date_str": today_iso}, headers=headers)
         activities = act_resp.json() if act_resp.status_code == 200 else {}
         
         # Today's Nutrition
-        nut_resp = requests.get(f"{api_url}/nutrition/today", params={"user_id": st.session_state.user_id}, headers=headers)
+        nut_resp = requests.get(f"{get_api_base()}/nutrition/today", params={"user_id": st.session_state.user_id, "date_str": today_iso}, headers=headers)
         nutrition = nut_resp.json() if nut_resp.status_code == 200 else {}
+        
+        # Today's Workouts (Calories Burned)
+        w_resp = requests.get(f"{get_api_base()}/workouts/today", params={"user_id": st.session_state.user_id, "date_str": today_iso}, headers=headers)
+        workouts_summary = w_resp.json() if w_resp.status_code == 200 else {}
+        today_work_cals = workouts_summary.get("calories", 0)
         
         # Dashboard Widgets with Live Data
         col1, col2, col3, col4 = st.columns(4)
         with col1:
-            st.metric("Steps Today", f"{activities.get('total_activities', 0):,}", "👟")
+             # Steps (Fitbit + Manual)
+             cnt = activities.get('total_steps', 0)
+             # If 0, fallback to activity count? No, user wants steps.
+             st.metric("Steps", f"{cnt:,}", "👟")
+             
         with col2:
             target = profile.get("calorie_target", 2200)
             consumed = nutrition.get("calories", 0)
             remaining = target - consumed
-            st.metric("Calories", f"{consumed} / {target}", f"{remaining} left" if remaining > 0 else f"{abs(remaining)} over")
+            st.metric("Calories In", f"{consumed} / {target}", f"{remaining} left" if remaining > 0 else f"{abs(remaining)} over")
+            
         with col3:
-            st.metric("Weight", f"{profile.get('weight', '--')} kg", "⚖️")
+            # Calories user burned (Total Active = Activity + Workouts)
+            # act_cals = activities total_calories (manual logs)
+            manual_act_cals = activities.get('total_calories', 0)
+            total_active_cals = manual_act_cals + today_work_cals
+            st.metric("Active Cals", f"{int(total_active_cals)} kcal", "🔥")
+            
         with col4:
-            st.metric("Streak", f"{profile.get('streak_workout', 0)} days", "🔥")
+            st.metric("Weight", f"{profile.get('weight', '--')} kg", "⚖️")
 
     except Exception as e:
         st.warning(f"Could not load live stats: {e}")
@@ -500,12 +532,12 @@ def main():
         try:
             tip_resp = requests.get(f"{api_url}/ai-coach/tip", params={"user_id": st.session_state.user_id}, headers=headers)
             tip = tip_resp.json().get("tip") if tip_resp.status_code == 200 else "Keep pushing towards your goals!"
-            st.success(f"💡 **Tip**: {tip}")
+            st.info(f"🤖 **EpochOne AI**: {tip}")
         except:
-            st.success("💡 Tip: Consistency is key! Keep tracking your progress daily.")
+            st.info("💡 **Coach Tip**: Consistency is key! Keep tracking your progress daily.")
         
         if st.button("Talk to Coach", use_container_width=True):
-            st.switch_page("pages/07_🤖_AI_Coach.py")
+            st.switch_page("pages/08_🤖_AI_Coach.py")
 
     render_sidebar_footer()
 

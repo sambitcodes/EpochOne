@@ -14,6 +14,7 @@ class MealCreate(BaseModel):
     carbs_g: float
     fat_g: float
     notes: Optional[str] = None
+    date: Optional[datetime] = None
 
 class MealResponse(BaseModel):
     """Meal response."""

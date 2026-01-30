@@ -22,80 +22,101 @@ router = APIRouter()
 @router.get("/daily-summary", response_model=dict)
 def get_daily_summary(
     user_id: str,
-    date: Optional[str] = None,
+    date: Optional[str] = None, # accepts date_str
     db: Session = Depends(get_db)
 ):
-    """Get consolidated daily calorie and burn summary."""
-    try:
-        target_date = datetime.strptime(date, "%Y-%m-%d").date() if date else datetime.utcnow().date()
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    """Get consolidated daily calorie and burn summary (IST aware)."""
+    # 0. Import Models
+    from app.models.nutrition import Meal
+    
+    # 1. Determine Target Date (IST)
+    if date:
+        try:
+            target_date = datetime.strptime(date, "%Y-%m-%d").date()
+        except ValueError:
+            target_date = (datetime.utcnow() + timedelta(hours=5, minutes=30)).date()
+    else:
+        target_date = (datetime.utcnow() + timedelta(hours=5, minutes=30)).date()
         
-    # 1. Get User Profile (Maintenance)
+    # 2. Get User Profile & Calculate BMR (Mifflin-St Jeor)
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+    
+    # Defaults
+    w = user.weight or 70.0
+    h = user.height or 170.0
+    a = user.age or 30
+    g = (user.gender or 'male').lower()
+    
+    # Format: (10*W) + (6.25*H) - (5*A) + S
+    # S: +5 for men, -161 for women
+    s_val = 5 if g in ['male', 'm'] else -161
+    bmr = (10 * w) + (6.25 * h) - (5 * a) + s_val
+    bmr = int(bmr) # Keep it integer
         
-    maintenance = user.maintenance_calories or 2000 # Fallback
+    # 3. Calculate UTC Range for this IST Day
+    start_ist = datetime.combine(target_date, datetime.min.time())
+    end_ist = datetime.combine(target_date, datetime.max.time())
     
-    # 2. Intake from DailyNutrition
-    # Note: Using cast to Date might be slow on large tables without index on cast, but ok for MVP
-    # Ideally DailyNutrition has a 'date' column that is DateTime. We filter by range.
-    start_of_day = datetime.combine(target_date, datetime.min.time())
-    end_of_day = datetime.combine(target_date, datetime.max.time())
+    start_utc = start_ist - timedelta(hours=5, minutes=30)
+    end_utc = end_ist - timedelta(hours=5, minutes=30)
     
-    daily_nut = db.query(DailyNutrition).filter(
-        DailyNutrition.user_id == user_id,
-        DailyNutrition.date >= start_of_day,
-        DailyNutrition.date <= end_of_day
-    ).first()
+    # 4. Intake (From Meals)
+    meals = db.query(Meal).filter(
+        Meal.user_id == user_id,
+        Meal.date >= start_utc,
+        Meal.date <= end_utc
+    ).all()
     
-    intake = daily_nut.calories if daily_nut else 0
+    intake = sum(m.calories for m in meals)
     
-    # 3. Activity Burn
-    activity_burn = db.query(func.sum(Activity.calories_burned)).filter(
+    # 5. Activity Burn (Manual Activities)
+    manual_activity_burn = db.query(func.sum(Activity.calories_burned)).filter(
         Activity.user_id == user_id,
-        Activity.date >= start_of_day,
-        Activity.date <= end_of_day
+        Activity.date >= start_utc,
+        Activity.date <= end_utc
     ).scalar() or 0
     
-    # 4. Workout Burn
+    # 6. Step Burn (Fitbit / AI Estimate)
+    step_burn = 0
+    from app.models.integrations import FitbitSync
+    fitbit_sync = db.query(FitbitSync).filter(FitbitSync.user_id == user_id).first()
+    
+    if fitbit_sync and fitbit_sync.last_sync:
+         # Check sync time in IST
+         sync_ist = fitbit_sync.last_sync + timedelta(hours=5, minutes=30)
+         if sync_ist.date() == target_date:
+             # Formula: Steps * 0.045
+             step_burn = fitbit_sync.last_step_count * 0.045
+    
+    # 7. Workout Burn
     workout_burn = db.query(func.sum(Workout.calories_burned)).filter(
         Workout.user_id == user_id,
-        Workout.date >= start_of_day,
-        Workout.date <= end_of_day
+        Workout.date >= start_utc,
+        Workout.date <= end_utc
     ).scalar() or 0
     
-    # 5. Fitbit Logic (For reference: user might want to see it, but we use the formula requested)
-    fitbit_burn = 0
-    fitbit_sync = db.query(FitbitSync).filter(FitbitSync.user_id == user_id).first()
-    if fitbit_sync and fitbit_sync.last_sync and fitbit_sync.last_sync.date() == target_date:
-        fitbit_burn = fitbit_sync.last_calories_burned or 0
-        
-    # If Fitbit is reliable, maybe override activity_burn? 
-    # User said: "maintenance + activities + workout". 
-    # We will return explicit values.
+    # 8. Totals
+    # User Request: "Activity Burn should include steps". 
+    total_activity_burn = float(manual_activity_burn) + float(step_burn)
     
-    total_burn = maintenance + float(activity_burn) + float(workout_burn)
-    net_calories = total_burn - float(intake)
+    # Total Burn = BMR + Activity(Manual+Steps) + Workout
+    total_expenditure = bmr + total_activity_burn + float(workout_burn)
     
-    # If positive: Deficit (Burned > Intake) -> Wait, usually Net can be defined either way.
-    # User said: "net deficit or net surplus".
-    # Surplus = Intake - Burn. Deficit = Burn - Intake.
-    # Let's return balance = Intake - TotalBurn. 
-    # If -500, it's a 500 deficit. If +500, it's a 500 surplus.
-    balance = float(intake) - total_burn
+    # Net Balance = Intake - Expenditure
+    balance = float(intake) - total_expenditure
     
     return {
         "date": str(target_date),
-        "maintenance_calories": maintenance,
-        "bmr": user.maintenance_calories, # Using maintenance as proxy for BMR/TDEE base
+        "maintenance_calories": bmr, # Using BMR logic as requested
+        "bmr": bmr,
         "calories_intake": intake,
-        "calories_burned_activity": float(activity_burn),
+        "calories_burned_activity": total_activity_burn, # Includes Steps + Manual
         "calories_burned_workout": float(workout_burn),
-        "calories_burned_fitbit": fitbit_burn,
-        "total_expenditure": total_burn,
-        "net_balance": balance, # Negative = Deficit
+        "calories_burned_step": step_burn,
+        "total_expenditure": total_expenditure,
+        "net_balance": balance,
         "status": "Surplus" if balance > 0 else "Deficit"
     }
 

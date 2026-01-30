@@ -3,7 +3,8 @@ from .workout import Workout, WorkoutExercise, WorkoutTemplate
 from .activity import Activity
 from .nutrition import Meal, Macros, DailyNutrition
 from .metrics import BodyMetric, ProgressPhoto
-from .integrations import HealthConnectSync, AppleHealthSync
+from .integrations import HealthConnectSync, AppleHealthSync, FitbitSync
+from .chat import ChatThread, ChatMessage
 
 __all__ = [
     "User",

@@ -13,7 +13,8 @@ EpochOne is a comprehensive AI-powered fitness tracking application designed to 
 - **Activities**: Track cardio, sports, and other activities. Sync automatically from wearables.
 - **Nutrition**: Log daily meals and track macronutrients (Protein, Carbs, Fat) and calories against your goals.
 - **Body Metrics**: Monitor weight, body fat %, measurements (waist, chest, etc.), and BMI trends.
-- **Recovery**: Track sleep duration, hydration levels, and daily mood/energy scores.
+- **Wellness**: Track daily holistic metrics including Sleep Quality, Stress Levels, Soreness, and Energy.
+- **Data Export**: Full GDPR-compliant export of all your data (Profile, Workouts, Nutrition, Metrics, Wellness) as a ZIP file.
 
 ### 🔌 Integrations
 - **Fitbit**: Full OAuth 2.0 integration. Syncs **steps**, **calories burned**, **activity intensity**, and **sleep** data directly to your dashboard.
@@ -36,8 +37,14 @@ EpochOne is a comprehensive AI-powered fitness tracking application designed to 
 - **Streaks**: Track diverse streaks (Workout, Nutrition, Sync).
 - **Daily Quests**: AI-generated daily challenges (e.g., "Walk 5000 steps", "Eat 20g protein").
 
+### 🎨 UI & UX
+- **Live Unit Toggles**: Instantly switch between Metric (kg/cm) and Imperial (lbs/in) units globally.
+- **Onboarding Flow**: Interactive setup wizard for new users to set goals and profile details.
+- **Dashboard**: Real-time "at a glance" view of your daily stats and AI Coach tips.
+
 ### 🔐 Authentication & Security
-- **Auth0 / Google Login**: Secure OIDC authentication.
+- **Auth0 / Google Login**: Secure OIDC authentication using standard OAuth2 flow.
+- **Ephemeral Sessions**: Designed for security and stability; sessions clear on refresh.
 - **User Segregation**: Complete data isolation between users.
 - **Encrypted Tokens**: OAuth tokens (Fitbit) are encrypted at rest.
 
@@ -117,8 +124,8 @@ docker-compose exec api python scripts/seed_demo_data.py
 - ✅ **Gamification**: XP, Levels, Streaks.
 - ✅ **AI Intergration**: Groq-powered Contextual Coach.
 - ✅ **Fitbit Integration**: Complete OAuth flow & data sync.
-- 🔄 **Mobile App**: Companion app for iOS/Android (via Flutter or React Native).
-- 🔄 **Advanced Analytics**: 1RM calculation, Volume trends, Progress Photo comparison.
+- ⏳ **Mobile App**: Companion app for iOS/Android (via Flutter or React Native).
+- ⏳ **Advanced Trend Analytics**: 1RM calculation, Volume trends, Progress Photo comparison.
 - 🔮 **Social**: Friend leaderboards and challenges.
 
 ---

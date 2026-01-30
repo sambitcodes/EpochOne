@@ -1,6 +1,31 @@
-"""Wearable device and API integrations."""
 import streamlit as st
 import requests
+import pytz
+from dateutil import parser
+from datetime import datetime
+
+def format_sync_time(dt_str):
+    """Convert UTC string to IST formatted string."""
+    if not dt_str:
+        return "Never"
+    try:
+        # Parse if string
+        if isinstance(dt_str, str):
+            dt = parser.parse(dt_str)
+        else:
+            dt = dt_str
+            
+        # Ensure UTC
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=pytz.UTC)
+            
+        # Convert to IST
+        ist = pytz.timezone('Asia/Kolkata')
+        dt_ist = dt.astimezone(ist)
+        
+        return dt_ist.strftime("%d-%m-%Y %H:%M")
+    except Exception:
+        return str(dt_str)[:19]
 
 st.set_page_config(page_title="Integrations", page_icon="🔌", layout="wide")
 
@@ -39,7 +64,7 @@ try:
         with col1:
             if status.get("connected"):
                 st.success("✅ Connected")
-                st.caption(f"Last sync: {status.get('last_sync', 'Never')[:19] if status.get('last_sync') else 'Never'}")
+                st.caption(f"Last sync: {format_sync_time(status.get('last_sync'))}")
             else:
                 st.warning("⚠️ Not connected")
                 
@@ -155,7 +180,7 @@ try:
         with col1:
             if status.get("connected"):
                 st.success("✅ Connected")
-                st.caption(f"Last sync: {status.get('last_sync', 'Never')}")
+                st.caption(f"Last sync: {format_sync_time(status.get('last_sync'))}")
             else:
                 st.warning("⚠️ Not connected")
 

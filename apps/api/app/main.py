@@ -11,7 +11,7 @@ import os
 
 from app.config import settings
 from app.db import engine, Base
-from app.routers import auth, workouts, activities, nutrition, metrics, integrations, ai_coach, users
+from app.routers import auth, workouts, activities, nutrition, metrics, integrations, ai_coach, users, wellness
 
 # Load environment
 load_dotenv()
@@ -67,6 +67,7 @@ app.include_router(nutrition.router, prefix="/nutrition", tags=["nutrition"])
 app.include_router(metrics.router, prefix="/metrics", tags=["metrics"])
 app.include_router(integrations.router, prefix="/integrations", tags=["integrations"])
 app.include_router(ai_coach.router, prefix="/ai-coach", tags=["ai_coach"])
+app.include_router(wellness.router, prefix="/wellness", tags=["wellness"])
 
 # ============ Health Check ============
 

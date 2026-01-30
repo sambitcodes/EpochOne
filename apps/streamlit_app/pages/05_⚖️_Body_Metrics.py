@@ -41,7 +41,24 @@ with tab1:
         col3, col4 = st.columns(2)
 
         with col3:
-            unit = st.selectbox("Unit", ["kg", "lbs", "cm", "in", "%"])
+            # Unit mapping
+            default_units = {
+                "Weight": "kg",
+                "Chest": "cm",
+                "Waist": "cm",
+                "Biceps": "cm",
+                "Thighs": "cm",
+                "Body Fat %": "%"
+            }
+            target_unit = default_units.get(metric_type, "kg")
+            unit_options = ["kg", "lbs", "cm", "in", "%"]
+            
+            # Find index of target unit
+            idx = 0
+            if target_unit in unit_options:
+                idx = unit_options.index(target_unit)
+                
+            unit = st.selectbox("Unit", unit_options, index=idx, key=f"unit_{metric_type}")
 
         with col4:
             st.write("") # spacing

@@ -41,7 +41,10 @@ class WorkoutExercise(Base):
     sets = Column(Integer, nullable=False)
     reps = Column(Integer, nullable=True)
     weight = Column(Float, nullable=True)  # kg or lbs
+    distance_km = Column(Float, nullable=True) # For cardio
+    duration_seconds = Column(Integer, nullable=True) # For cardio
     rest_seconds = Column(Integer, nullable=True)
+    failure = Column(Boolean, default=False)
     notes = Column(Text, nullable=True)
     order = Column(Integer, default=0)
 

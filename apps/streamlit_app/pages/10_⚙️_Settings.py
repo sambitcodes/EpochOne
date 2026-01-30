@@ -228,8 +228,30 @@ with tab4:
     col1, col2 = st.columns(2)
 
     with col1:
-        if st.button("Export Data (CSV)"):
-            st.info("📥 Data export initiated")
+        if st.button("Prepare Data Export"):
+            with st.spinner("Generating export package..."):
+                try:
+                    exp_resp = requests.get(
+                        f"{get_api_base()}/users/export",
+                        params={"user_id": st.session_state.user_id},
+                        headers=get_headers()
+                    )
+                    if exp_resp.status_code == 200:
+                        st.session_state.export_zip = exp_resp.content
+                        st.success("✅ Data ready for download!")
+                    else:
+                        st.error(f"Export failed: {exp_resp.text}")
+                except Exception as e:
+                    st.error(f"Error: {e}")
+
+        if "export_zip" in st.session_state:
+            st.download_button(
+                label="📥 Download Export (.zip)",
+                data=st.session_state.export_zip,
+                file_name=f"epochone_export_{st.session_state.user_id[:8]}.zip",
+                mime="application/zip",
+                type="primary"
+            )
 
     with col2:
         st.error("🗑️ Danger Zone")

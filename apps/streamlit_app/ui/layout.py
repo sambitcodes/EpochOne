@@ -2,12 +2,15 @@
 import streamlit as st
 from typing import Optional, List, Callable
 
+
 def logout_user():
-    """Logout user."""
+    """Logout user and clear session state."""
+    # Clear session state
     st.session_state.access_token = None
     st.session_state.user = None
     st.session_state.user_id = None
     st.session_state.user_profile = None
+        
     st.success("✅ Logged out")
     st.switch_page("Home.py")
 
